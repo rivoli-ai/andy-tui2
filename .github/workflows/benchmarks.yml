@@ -1,0 +1,38 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays at 03:00 UTC
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  run-benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build -c Release --no-restore
+
+      - name: Run Benchmarks
+        run: dotnet run -c Release -p benchmarks/Andy.Tui.Benchmarks/Andy.Tui.Benchmarks.csproj -- --artifacts "./BenchmarkArtifacts"
+
+      - name: Upload Benchmark Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-artifacts
+          path: ./BenchmarkArtifacts
+          retention-days: 14

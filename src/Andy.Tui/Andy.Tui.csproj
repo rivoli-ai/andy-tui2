@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Meta-package for Andy.Tui v2. Aggregates the core libraries for convenience.</Description>
+    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet</PackageTags>
+    <PackageProjectUrl>https://github.com/rivoli-ai/andy-tui2</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rivoli-ai/andy-tui2</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />
+    <!-- Backends planned for later; leave referenced so package aggregates -->
+    <ProjectReference Include="..\Andy.Tui.Backend.Web\Andy.Tui.Backend.Web.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Native\Andy.Tui.Backend.Native.csproj" />
+  </ItemGroup>
+
+</Project>

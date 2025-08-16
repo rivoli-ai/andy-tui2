@@ -1,0 +1,42 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Packaging defaults for libraries; tests override IsPackable -->
+    <IsPackable>true</IsPackable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>Rivoli AI</Authors>
+    <Company>Rivoli AI</Company>
+    <Copyright>Copyright © Rivoli AI</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>andy_tui_icon.png</PackageIcon>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <Description>Andy.Tui v2 — Reactive TUI framework for .NET.</Description>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- Ensure the package icon is included. Expect icon under assets/ -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)assets/andy_tui_icon.png" Pack="true" PackagePath="/" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)assets/andy_tui_icon.png')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="/" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Test projects set IsPackable=false; see their csproj -->
+</Project>

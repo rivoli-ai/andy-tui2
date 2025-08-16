@@ -1,0 +1,17 @@
+
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1.5" y="1.5" width="97" height="97" rx="12" ry="12" fill="#fefaf4" stroke="#e0522a" stroke-width="3"/>
+  <circle cx="25" cy="25" r="7" fill="#2aa39e"/>
+  <circle cx="50" cy="25" r="7" fill="#ddd"/>
+  <circle cx="75" cy="25" r="7" fill="#2aa39e"/>
+  <circle cx="25" cy="50" r="7" fill="#ddd"/>
+  <circle cx="50" cy="50" r="7" fill="#f28c28"/>
+  <circle cx="75" cy="50" r="7" fill="#ddd"/>
+  <circle cx="25" cy="75" r="7" fill="#2aa39e"/>
+  <circle cx="50" cy="75" r="7" fill="#ddd"/>
+  <circle cx="75" cy="75" r="7" fill="#2aa39e"/>
+  <line x1="25" y1="25" x2="50" y2="50" stroke="#e0522a" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="75" y1="25" x2="50" y2="50" stroke="#e0522a" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="25" y1="75" x2="50" y2="50" stroke="#e0522a" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="75" y1="75" x2="50" y2="50" stroke="#e0522a" stroke-width="1.5" stroke-dasharray="3,2"/>
+</svg>
