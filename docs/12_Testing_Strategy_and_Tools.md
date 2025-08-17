@@ -4,7 +4,7 @@
 Virtual clock, seeded RNG, single-thread scheduler, stubbed I/O, fixed capabilities.
 
 ## Oracles
-- **Virtual Screen Oracle**: decode ANSI bytes → virtual grid; must equal CellGrid.
+- **`VirtualScreenOracle`**: decode ANSI bytes → virtual grid; must equal `CellGrid`.
 - **Layout Invariants**: parent containment, no negative sizes, clip correctness.
 
 ## Test Pyramid

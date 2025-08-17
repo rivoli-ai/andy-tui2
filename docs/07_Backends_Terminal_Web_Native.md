@@ -18,7 +18,7 @@
 3. Native renderer (Skia/WGPU) + platform shapers.
 
 ## Test Plan
-- Terminal: Virtual Screen oracle round-trip.
+- Terminal: `VirtualScreenOracle` round-trip.
 - Web/Native: pixel/regression snapshots for DL fixtures.
 - Capability modes: color quantization consistency.
 

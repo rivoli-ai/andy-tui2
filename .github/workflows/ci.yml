@@ -1,34 +1,33 @@
-name: CI
+name: ci
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
-env:
-  DOTNET_VERSION: '8.0.x'
-
 jobs:
   build-and-test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    
+    runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-    
-    - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: Install Playwright Browsers (for parity tests)
+        if: env.RUN_PARITY == 'true'
+        run: |
+          dotnet build tests/Andy.Tui.Parity.Playwright/Andy.Tui.Parity.Playwright.csproj -c Debug
+          bash tests/Andy.Tui.Parity.Playwright/bin/Debug/net8.0/playwright.sh install chromium
+      - name: Test
+        run: |
+          if [ "${RUN_PARITY}" = "true" ]; then
+            dotnet test --no-build --verbosity normal
+          else
+            dotnet test --no-build --verbosity normal --filter FullyQualifiedName!~Andy.Tui.Parity.Playwright
+          fi

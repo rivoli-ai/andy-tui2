@@ -4,9 +4,13 @@
 Backend-agnostic drawing IR + terminal cell compositor + precise damage model.
 
 ## Interfaces
-- Display ops: `Rect`, `Border`, `TextRun`, `Line`, `Layer`, `Clip`, `Shadow`.
+- Display ops: `Rect`, `Border`, `TextRun`, `Line`, `LayerPush`, `ClipPush`, `Pop`, `Shadow`.
 - `buildDisplayList(boxes, styles, content) -> DL`
 - TTY: `composite(DL) -> CellGrid`, `damage(old, new) -> DirtyRects`, `rowRuns(cells, dirty) -> Runs`
+
+### IR and Builder naming
+- IR uses noun ops suitable for diff/hash: `Rect`, `Border`, `TextRun`, `LayerPush`, `ClipPush`, `Pop` (optional: `Line`, `Shadow`).
+- Builder exposes verb methods to construct the IR: `DrawRect`, `DrawBorder`, `DrawText`, `PushLayer`, `PushClip`, `Pop`.
 
 ## Implementation Plan
 1. **Display List Builder**

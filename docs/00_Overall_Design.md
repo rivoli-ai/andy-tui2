@@ -17,7 +17,7 @@ A cross-backend, high-performance, reactive UI library capable of Bloomberg/VS C
 10. **Animations & Frame Pacing** — transitions/keyframes, scheduler with target FPS.
 11. **Virtualization & Key Widgets** — Virtualized List/Grid, Editor core, Real-time Log Viewer.
 12. **Observability** — structured logging, tracing spans, HUD, frame capture & replay.
-13. **Testing & Quality** — deterministic runtime, Virtual Screen oracle, PTY tests, fuzz/property tests.
+13. **Testing & Quality** — deterministic runtime, `VirtualScreenOracle`, PTY tests, fuzz/property tests.
 
 ## End-to-end frame lifecycle
 

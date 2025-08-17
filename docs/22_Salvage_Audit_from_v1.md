@@ -38,7 +38,8 @@ Repo scanned: `/Users/samibengrine/devel/rivoli-ai/andy-tui` (multiple projects,
   - Invariant validator with clear exceptions
 - Plan:
   - Adopt invariant rules and test style in v2 `Andy.Tui.DisplayList`
-  - Align item types with v2’s unified pipeline; keep push/pop clip semantics and layer monotonic checks
+  - Align item names with v2 ops (`LayerPush`, `ClipPush`, `Pop`, `Rect`, `Border`, `TextRun`)
+  - Keep push/pop clip semantics and layer monotonic checks
 
 ### Diagnostics / Observability Init
 - Files: `src/Andy.TUI.Diagnostics/ComprehensiveLoggingInitializer.cs`, `LogManager` et al.
@@ -47,13 +48,15 @@ Repo scanned: `/Users/samibengrine/devel/rivoli-ai/andy-tui` (multiple projects,
 - Plan:
   - Adapt pattern behind v2 `Andy.Tui.Observability` facade
   - Preserve tests that validate low overhead in info mode; integrate with Chrome Trace exporter
+  - Standardize initializer name and usage with `ComprehensiveLoggingInitializer.Initialize(isTestMode: true)`
 
 ### Terminal Abstractions
 - Files: `src/Andy.TUI.Terminal/ITerminal.cs`
 - Strengths:
   - Clear terminal capability surface
 - Plan:
-  - Use as naming inspiration; v2 will expose `IRenderBackend` and `IPtyIo` for stricter separation
+  - Use as naming inspiration; in v2 express as `TerminalCapabilities` + `IPtyIo`
+  - Keep capability detection in the backend encoder, not the compositor
 
 ## Not Recommended to Reuse
 - `VirtualDomRenderer`, `DeclarativeRenderer` and associated mixed flows — conflicts with v2 unified pipeline
@@ -66,7 +69,7 @@ Repo scanned: `/Users/samibengrine/devel/rivoli-ai/andy-tui` (multiple projects,
 - Dirty vs full repaint differential tests: port concept to v2 compositor/backend
 
 ## Proposed Integration Points in v2
-- `src/Andy.Tui.DisplayList`: Item types; invariant validator and tests
+- `src/Andy.Tui.DisplayList`: Item types; invariant validator and tests (LayerPush/ClipPush/Pop naming)
 - `src/Andy.Tui.Compositor`: Dirty tracking with row-run deltas; swap API
 - `src/Andy.Tui.Backend.Terminal`: ANSI encoder with color mapping algorithms
 - `src/Andy.Tui.Observability`: Logging initializer pattern; test hooks
@@ -81,6 +84,7 @@ Repo scanned: `/Users/samibengrine/devel/rivoli-ai/andy-tui` (multiple projects,
 - [ ] Implement DL invariant validator and port/adapt tests
 - [ ] Implement compositor dirty tracking using row-run model (inspired by v1 buffer)
 - [ ] Implement observability initializer aligned with v2 facade; add deterministic test hooks
+- [ ] Align `Virtual Screen oracle` mentions to `VirtualScreenOracle` across docs and tests
 
 ## Notes
 - No solid Unicode width/grapheme utilities were found in v1; v2 will implement this anew in `Andy.Tui.Text`

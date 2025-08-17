@@ -7,6 +7,7 @@
     <PackageTags>tui;terminal;ui;reactive;ansi;dotnet</PackageTags>
     <PackageProjectUrl>https://github.com/rivoli-ai/andy-tui2</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rivoli-ai/andy-tui2</RepositoryUrl>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

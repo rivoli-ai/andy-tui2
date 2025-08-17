@@ -19,7 +19,7 @@ This plan refines the roadmap into concrete .NET solution layout, milestones, ac
   - `src/Andy.Tui.Input` — input, focus, IME model, accessibility semantics
   - `src/Andy.Tui.Animations` — transitions, keyframes, frame pacing
   - `src/Andy.Tui.Virtualization` — list/grid virtualization engine
-  - `src/Andy.Tui.Widgets` — virtualized list/grid, editor core, real-time log viewer
+  - `src/Andy.Tui.Widgets` — base widgets (from v1 Declarative) + virtualized list/grid, editor core, real-time log viewer
   - `src/Andy.Tui.Observability` — logging facade, tracing spans, HUD, capture/replay
 - Tests (xUnit):
   - `tests/Andy.Tui.Core.Tests`
@@ -27,7 +27,7 @@ This plan refines the roadmap into concrete .NET solution layout, milestones, ac
   - `tests/Andy.Tui.Style.Tests`
   - `tests/Andy.Tui.Layout.Tests`
   - `tests/Andy.Tui.Text.Tests`
-  - `tests/Andy.Tui.Rendering.Tests` (DisplayList + Compositor + Backend; virtual screen oracle)
+  - `tests/Andy.Tui.Rendering.Tests` (DisplayList + Compositor + Backend; `VirtualScreenOracle`)
   - `tests/Andy.Tui.Input.Tests`
   - `tests/Andy.Tui.Animations.Tests`
   - `tests/Andy.Tui.Virtualization.Tests`
@@ -84,7 +84,7 @@ Acceptance:
 - [ ] Observability baseline: logging categories, spans
 
 Acceptance:
-- [ ] Virtual Screen Oracle parity: DL → cells → bytes round-trip equals expected
+- [ ] `VirtualScreenOracle` parity: DL → cells → bytes round-trip equals expected
 - [ ] Dirty vs full repaint differential tests prove equivalence
 
 ### Phase 3 — Interactivity & Animations (Week 9–10)
@@ -97,13 +97,46 @@ Acceptance:
 - [ ] HUD timings consistent; no excessive overhead at info level
 
 ### Phase 4 — Virtualization & Widgets (Week 11–14)
+- [ ] Base Widgets (from v1 Declarative)
+  - Containers
+    - [ ] Stack (VStack/HStack) — Flex wrappers with sensible defaults
+    - [ ] Grid (simple cells prior to full Grid engine)
+    - [ ] ScrollView (single child, overflow handling)
+    - [ ] Border/Box (padding/border/radius/background)
+    - [ ] Spacer & Divider
+  - Content
+    - [ ] Text / Label (styleable, alignment, wrapping hooks to Text engine)
+    - [ ] Icon (glyph-based)
+  - Inputs / Controls
+    - [ ] Button (press/hover/focus states)
+    - [ ] Toggle / Checkbox
+    - [ ] RadioButton (grouping)
+    - [ ] TextInput / TextArea (cursor, selection basics)
+    - [ ] Select / Dropdown (simple list popup)
+    - [ ] Slider
+    - [ ] ProgressBar
+  - Collections & Navigation
+    - [ ] ListView (non-virtualized baseline)
+    - [ ] Table (simple header + rows)
+    - [ ] TreeView (expand/collapse)
+    - [ ] Tabs
+  - Overlays
+    - [ ] Dialog / Modal
+    - [ ] Tooltip
+
 - [ ] Virtualized list/grid with overscan tuning
 - [ ] Real-time log view (sustained high-throughput append)
 - [ ] Editor MVP (buffer, viewport, basic edits)
 
 Acceptance:
+- [ ] Base widgets expose consistent APIs and CSS style mappings; focus and input semantics verified
 - [ ] Perf targets met per Performance Acceptance Plan for scenarios
 - [ ] Widget suites stable across 1k deterministic runs
+
+#### Notes (Base Widgets)
+- v1 Declarative provided these primitives; in v2, containers are implemented atop Flex (Phase 1) and integrate with the CSS subset.
+- Non-virtualized lists/tables provide parity and simpler mental models; virtualized variants land in the same module with shared interfaces.
+- Input controls wire to `Andy.Tui.Input` focus and event routing; pseudo-classes map to visual states.
 
 ### Phase 5 — Additional Backends (Week 15–18)
 - [ ] Web Canvas backend
@@ -114,7 +147,7 @@ Acceptance:
 
 ## Testing Strategy Integration
 
-- Oracles: Virtual Screen Oracle; Layout invariants; Bytes snapshots
+- Oracles: `VirtualScreenOracle`; Layout invariants; Bytes snapshots
 - Test pyramid: unit → golden → property/fuzz → integration (PTY) → soak/perf
 - Tooling commands:
   - `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults`

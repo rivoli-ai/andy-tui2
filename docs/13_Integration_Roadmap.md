@@ -32,7 +32,7 @@ Legacy reuse plan:
 - Terminal Backend encoder + I/O (07 – TTY)
 - Observability baseline (11 – logs/spans)
 
-**Integration:** DL → Cells → Diff/Encode → Virtual Screen oracle.
+**Integration:** DL → Cells → Diff/Encode → `VirtualScreenOracle`.
 
 ## Phase 3 — Interactivity & Anim (Week 9–10)
 - Input/Focus (08)
