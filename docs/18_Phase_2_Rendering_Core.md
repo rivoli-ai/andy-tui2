@@ -102,10 +102,10 @@
 ## Tasks & Sequencing
 - [x] Unify DL op naming across docs and code; implement builder with verbs
 - [x] Define DL ops and builders; integrate with layout boxes (builder in place; layout-box traversal integration pending)
-- [~] Implement compositor with damage heuristics and scroll detection (compositor + damage row-runs implemented; scroll detection pending)
+- [x] Implement compositor with damage heuristics and scroll detection (row-runs + scroll detection implemented)
 - [~] Implement terminal ANSI encoder and PTY abstraction with capability detection (encoder + capabilities + IPtyIo in place; detection heuristics TBD)
 - [~] Observability: structured logging categories and spans per stage (baseline initializer available; categories/spans wiring pending)
-- [~] End-to-end DL → Cells → Bytes round-trips with golden tests (text placement round-trip via oracle implemented; colors/attrs parsing pending)
+- [x] End-to-end DL → Cells → Bytes round-trips with golden tests (text placement + colors/attrs parity via oracle implemented)
 
 ## Testing
 - Unit
@@ -128,7 +128,7 @@
 ## Progress (2025-08-17)
 
 - DisplayList: IR noun ops (`Rect`, `Border`, `TextRun`, `LayerPush`, `ClipPush`, `Pop`) and verb-based `DisplayListBuilder` implemented. Invariants validator added (clip intersection, push/pop balance, monotonic ordering guard). Cross-doc op naming aligned.
-- Compositor (TTY): MVP implemented producing `CellGrid`; overwrite model; clipping respected; borders rendered (box-drawing); row-run extraction groups by attrs and colors; damage model computes per-row rects (no scroll optimization yet).
+- Compositor (TTY): MVP implemented producing `CellGrid`; overwrite model; clipping respected; borders rendered (box-drawing); row-run extraction groups by attrs and colors; damage model computes per-row rects and includes vertical scroll detection.
 - Terminal Backend: ANSI encoder implemented with minimal-diff across runs for attrs and fg/bg; truecolor/256/16 color mapping using salvage algorithms; `TerminalCapabilities` + `IPtyIo` defined.
 - Oracle: `VirtualScreenOracle` added for cursor-position/text placement parity (SGR colors/attrs parsing not yet implemented).
 - Observability: Minimal `ComprehensiveLoggingInitializer` added for test mode; full categories/spans pending.
@@ -136,6 +136,14 @@
   - DisplayList: build/balance, invariants (empty-intersection, stray pop, unbalanced push).
   - Compositor: rect+text layering, text background policy (with/without bg), clipping, borders, row-run grouping, damage (multi-rect, no-diff), z-order overwrite.
   - Encoder: truecolor/256/16 color emissions; minimal redundant SGR sequences; e2e multi-run cursor moves; DL→Cells→Runs→Encode→Decode text placement parity.
+
+### Additional progress (2025-08-18)
+
+- Scroll dirty budget test (≤ 12%) and bytes-per-frame budget tests added.
+- Curated parity fixtures validate colors/attrs round-trips on multi-run frames.
+- Wide-glyph edge policy implemented (placeholder at last column); test scaffold in place.
+- One-write-per-frame validated via `FrameWriter`.
+- Examples: added simple terminal examples demonstrating DL→Compositor→Encoder pipeline.
 
 ## Perf Gates
 - One write per frame (TTY) — enforced via `FrameWriter` test

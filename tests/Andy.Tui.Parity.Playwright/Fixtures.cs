@@ -78,7 +78,7 @@ public class Fixtures
         await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
         var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 300, Height = 200 } });
         var page = await context.NewPageAsync();
-        var html = "<style>.c{display:flex;flex-direction:column;flex-wrap:wrap;gap:10px;height:200px;width:200px;align-content:flex-start}.i{width:50px;height:50px}</style><div class=\"c\">" + new string('x',0) + "<div class=i></div><div class=i></div><div class=i></div><div class=i></div></div>";
+        var html = "<style>.c{display:flex;flex-direction:column;flex-wrap:wrap;gap:10px;height:200px;width:200px;align-content:flex-start}.i{width:50px;height:50px}</style><div class=\"c\">" + new string('x', 0) + "<div class=i></div><div class=i></div><div class=i></div><div class=i></div></div>";
         await page.SetContentAsync(html);
         var boxes = await GetClientRects(page, ".c", ".i");
 

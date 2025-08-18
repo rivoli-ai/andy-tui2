@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Andy.Tui.Core\Andy.Tui.Core.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
   </ItemGroup>
 
 </Project>

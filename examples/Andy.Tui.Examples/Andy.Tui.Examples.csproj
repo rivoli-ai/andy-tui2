@@ -10,5 +10,7 @@
     <ProjectReference Include="..\..\src\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Core\Andy.Tui.Core.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
   </ItemGroup>
 </Project>

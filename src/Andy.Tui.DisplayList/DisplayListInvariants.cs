@@ -13,7 +13,7 @@ public static class DisplayListInvariants
         if (dl is null) throw new DisplayListInvariantViolationException("Display list is null");
         var clipDepth = 0;
         var lastLayer = int.MinValue;
-        var clipStack = new Stack<(int X,int Y,int W,int H)>();
+        var clipStack = new Stack<(int X, int Y, int W, int H)>();
 
         foreach (var op in dl.Ops)
         {

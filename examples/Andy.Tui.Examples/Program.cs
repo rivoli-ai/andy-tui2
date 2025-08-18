@@ -13,45 +13,113 @@ class Program
         var caps = CapabilityDetector.DetectFromEnvironment();
         var viewport = (Width: Console.WindowWidth, Height: Console.WindowHeight);
 
-        // Example 1: Hello box
+        // Example 1: Hello box + HUD toggle
         var hello = new DisplayListBuilder();
-        hello.PushClip(new ClipPush(0,0,viewport.Width, viewport.Height));
-        hello.DrawRect(new Rect(0,0,viewport.Width, viewport.Height, new Rgb24(0,0,0)));
-        hello.DrawBorder(new Border(2,1, 30, 5, "single", new Rgb24(180,180,180)));
-        hello.DrawText(new TextRun(4,3, "Hello, Andy.Tui!", new Rgb24(200,200,50), null, CellAttrFlags.Bold));
+        hello.PushClip(new ClipPush(0, 0, viewport.Width, viewport.Height));
+        hello.DrawRect(new Rect(0, 0, viewport.Width, viewport.Height, new Rgb24(0, 0, 0)));
+        hello.DrawBorder(new Border(2, 1, 30, 5, "single", new Rgb24(180, 180, 180)));
+        hello.DrawText(new TextRun(4, 3, "Hello, Andy.Tui!", new Rgb24(200, 200, 50), null, CellAttrFlags.Bold));
         hello.Pop();
 
-        await RenderAsync(hello, viewport, caps);
+        await RenderAsync(hello, viewport, caps, showHud: true);
 
         Console.WriteLine();
         Console.WriteLine("Press Enter for Colors example...");
         Console.ReadLine();
 
-        // Example 2: Color runs
-        var colors = new DisplayListBuilder();
-        colors.PushClip(new ClipPush(0,0,viewport.Width, viewport.Height));
-        colors.DrawRect(new Rect(0,0,viewport.Width, viewport.Height, new Rgb24(0,0,0)));
-        colors.DrawText(new TextRun(2,2, "Red", new Rgb24(255,0,0), null, CellAttrFlags.Bold));
-        colors.DrawText(new TextRun(8,2, "Green", new Rgb24(0,255,0), null, CellAttrFlags.None));
-        colors.DrawText(new TextRun(15,2, "Blue", new Rgb24(0,0,255), null, CellAttrFlags.Underline));
-        colors.Pop();
+        // Example 2: Interactive HUD toggle, live resize, and simple color transition demo
+        var scheduler = new Andy.Tui.Core.FrameScheduler();
+        var hud = new Andy.Tui.Observability.HudOverlay { Enabled = true };
+        scheduler.SetMetricsSink(hud);
+        var pty = new StdoutPty();
 
-        await RenderAsync(colors, viewport, caps);
-
+        bool running = true;
+        bool showHud = true;
+        long animStart = Environment.TickCount64;
         Console.WriteLine();
-        Console.WriteLine("Done. Press Enter to exit.");
-        Console.ReadLine();
+        Console.WriteLine("Interactive demo: press 'h' to toggle HUD, 'q' to quit.");
+        while (running)
+        {
+            // Handle simple key input (non-blocking)
+            while (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(intercept: true);
+                if (key.Key == ConsoleKey.H)
+                {
+                    showHud = !showHud;
+                    hud.Enabled = showHud;
+                }
+                else if (key.Key == ConsoleKey.Q)
+                {
+                    running = false;
+                }
+            }
+
+            // Detect terminal resize
+            viewport = (Console.WindowWidth, Console.WindowHeight);
+
+            // Build base scene with animated color for a label
+            var baseBuilder = new DisplayListBuilder();
+            baseBuilder.PushClip(new ClipPush(0, 0, viewport.Width, viewport.Height));
+            baseBuilder.DrawRect(new Rect(0, 0, viewport.Width, viewport.Height, new Rgb24(0, 0, 0)));
+            var elapsed = Environment.TickCount64 - animStart;
+            var from = new Rgb24(50, 150, 250);
+            var to = new Rgb24(250, 100, 50);
+            var tcol = Andy.Tui.Animations.ColorTransitionApplier.Apply(new TextRun(2, 1, $"HUD: {(showHud ? "ON" : "OFF")}  Size: {viewport.Width}x{viewport.Height}  (h=toggle, q=quit)", from, null, CellAttrFlags.None), animStart, Environment.TickCount64, new Andy.Tui.Animations.TransitionColor(from, to, 2000));
+            baseBuilder.DrawText(tcol);
+            baseBuilder.DrawBorder(new Border(1, 2, Math.Max(10, viewport.Width - 2), Math.Max(3, viewport.Height - 3), "single", new Rgb24(100, 100, 100)));
+            baseBuilder.Pop();
+
+            var baseDl = baseBuilder.Build();
+            // Build HUD overlay ops
+            var overlayBuilder = new DisplayListBuilder();
+            hud.Contribute(baseDl, overlayBuilder);
+            var overlayDl = overlayBuilder.Build();
+
+            // Combine base + overlay into one DL
+            var combined = Combine(baseDl, overlayDl);
+            await scheduler.RenderOnceAsync(combined, viewport, caps, pty, CancellationToken.None);
+
+            // Small delay to avoid busy loop
+            await Task.Delay(16);
+        }
     }
 
-    static async Task RenderAsync(DisplayListBuilder builder, (int Width,int Height) viewport, TerminalCapabilities caps)
+    static async Task RenderAsync(DisplayListBuilder builder, (int Width, int Height) viewport, TerminalCapabilities caps, bool showHud = false)
     {
         var dl = builder.Build();
-        var comp = new TtyCompositor();
-        var cells = comp.Composite(dl, viewport);
-        var dirty = comp.Damage(new CellGrid(viewport.Width, viewport.Height), cells);
-        var runs = comp.RowRuns(cells, dirty);
+        var scheduler = new Andy.Tui.Core.FrameScheduler();
+        var hud = new Andy.Tui.Observability.HudOverlay{ Enabled = showHud };
+        scheduler.SetMetricsSink(hud);
         var pty = new StdoutPty();
-        await new FrameWriter().RenderFrameAsync(runs, caps, pty, CancellationToken.None);
+        // Combine base + overlay for a single frame
+        var overlayBuilder = new DisplayListBuilder();
+        hud.Contribute(dl, overlayBuilder);
+        var combined = Combine(dl, overlayBuilder.Build());
+        await scheduler.RenderOnceAsync(combined, viewport, caps, pty, CancellationToken.None);
+    }
+
+    static DisplayList Combine(DisplayList a, DisplayList b)
+    {
+        var builder = new DisplayListBuilder();
+        void Append(DisplayList dl)
+        {
+            foreach (var op in dl.Ops)
+            {
+                switch (op)
+                {
+                    case Rect r: builder.DrawRect(r); break;
+                    case Border br: builder.DrawBorder(br); break;
+                    case TextRun tr: builder.DrawText(tr); break;
+                    case ClipPush cp: builder.PushClip(cp); break;
+                    case LayerPush lp: builder.PushLayer(lp); break;
+                    case Pop: builder.Pop(); break;
+                }
+            }
+        }
+        Append(a);
+        Append(b);
+        return builder.Build();
     }
 }
 

@@ -11,8 +11,8 @@ public static class VirtualScreenOracle
     {
         var grid = new CellGrid(viewport.Width, viewport.Height);
         int row = 0, col = 0; // 0-based
-        var currentFg = new Rgb24(255,255,255);
-        var currentBg = new Rgb24(0,0,0);
+        var currentFg = new Rgb24(255, 255, 255);
+        var currentBg = new Rgb24(0, 0, 0);
         var currentAttrs = CellAttrFlags.None;
         int i = 0;
         while (i < bytes.Length)
@@ -46,14 +46,14 @@ public static class VirtualScreenOracle
                         case 'm':
                             // Parse SGR: sequences separated by ;
                             var codes = param.ToString().Split(';', StringSplitOptions.RemoveEmptyEntries);
-                            if (codes.Length == 0) { currentFg = new Rgb24(255,255,255); currentBg = new Rgb24(0,0,0); currentAttrs = CellAttrFlags.None; break; }
+                            if (codes.Length == 0) { currentFg = new Rgb24(255, 255, 255); currentBg = new Rgb24(0, 0, 0); currentAttrs = CellAttrFlags.None; break; }
                             int idx = 0;
                             while (idx < codes.Length)
                             {
                                 if (!int.TryParse(codes[idx], out int code)) { idx++; continue; }
                                 switch (code)
                                 {
-                                    case 0: currentFg = new Rgb24(255,255,255); currentBg = new Rgb24(0,0,0); currentAttrs = CellAttrFlags.None; idx++; break;
+                                    case 0: currentFg = new Rgb24(255, 255, 255); currentBg = new Rgb24(0, 0, 0); currentAttrs = CellAttrFlags.None; idx++; break;
                                     case 1: currentAttrs |= CellAttrFlags.Bold; idx++; break;
                                     case 3: currentAttrs |= CellAttrFlags.Italic; idx++; break;
                                     case 4: currentAttrs |= CellAttrFlags.Underline; idx++; break;
@@ -62,16 +62,16 @@ public static class VirtualScreenOracle
                                     case 5: currentAttrs |= CellAttrFlags.Blink; idx++; break;
                                     case 7: currentAttrs |= CellAttrFlags.Reverse; idx++; break;
                                     case 38: // foreground
-                                        if (idx + 1 < codes.Length && codes[idx+1] == "2" && idx + 4 < codes.Length)
+                                        if (idx + 1 < codes.Length && codes[idx + 1] == "2" && idx + 4 < codes.Length)
                                         {
                                             // 38;2;r;g;b
-                                            var r8 = byte.Parse(codes[idx+2]);
-                                            var g8 = byte.Parse(codes[idx+3]);
-                                            var b8 = byte.Parse(codes[idx+4]);
-                                            currentFg = new Rgb24(r8,g8,b8);
+                                            var r8 = byte.Parse(codes[idx + 2]);
+                                            var g8 = byte.Parse(codes[idx + 3]);
+                                            var b8 = byte.Parse(codes[idx + 4]);
+                                            currentFg = new Rgb24(r8, g8, b8);
                                             idx += 5;
                                         }
-                                        else if (idx + 1 < codes.Length && codes[idx+1] == "5" && idx + 2 < codes.Length)
+                                        else if (idx + 1 < codes.Length && codes[idx + 1] == "5" && idx + 2 < codes.Length)
                                         {
                                             // 38;5;n — approximate to rgb cube for oracle parity: not needed for cell FG equality
                                             idx += 3;
@@ -79,15 +79,15 @@ public static class VirtualScreenOracle
                                         else { idx++; }
                                         break;
                                     case 48: // background
-                                        if (idx + 1 < codes.Length && codes[idx+1] == "2" && idx + 4 < codes.Length)
+                                        if (idx + 1 < codes.Length && codes[idx + 1] == "2" && idx + 4 < codes.Length)
                                         {
-                                            var r8 = byte.Parse(codes[idx+2]);
-                                            var g8 = byte.Parse(codes[idx+3]);
-                                            var b8 = byte.Parse(codes[idx+4]);
-                                            currentBg = new Rgb24(r8,g8,b8);
+                                            var r8 = byte.Parse(codes[idx + 2]);
+                                            var g8 = byte.Parse(codes[idx + 3]);
+                                            var b8 = byte.Parse(codes[idx + 4]);
+                                            currentBg = new Rgb24(r8, g8, b8);
                                             idx += 5;
                                         }
-                                        else if (idx + 1 < codes.Length && codes[idx+1] == "5" && idx + 2 < codes.Length)
+                                        else if (idx + 1 < codes.Length && codes[idx + 1] == "5" && idx + 2 < codes.Length)
                                         {
                                             idx += 3;
                                         }

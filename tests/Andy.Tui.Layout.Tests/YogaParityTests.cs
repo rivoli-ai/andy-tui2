@@ -148,7 +148,7 @@ public class YogaParityTests
     {
         var c = ResolvedStyle.Default with { FlexDirection = FlexDirection.Column, AlignItems = AlignItems.Center };
         var a = new FixedNode(20, 5);
-        FlexLayout.Layout(new Size(50, 50), c, new List<(ILayoutNode, ResolvedStyle)>{ (a, ResolvedStyle.Default) });
+        FlexLayout.Layout(new Size(50, 50), c, new List<(ILayoutNode, ResolvedStyle)> { (a, ResolvedStyle.Default) });
         Assert.InRange(a.ArrangedRect.X, (50 - 20) / 2.0 - 1e-6, (50 - 20) / 2.0 + 1e-6);
     }
 
@@ -158,7 +158,7 @@ public class YogaParityTests
         var c = ResolvedStyle.Default;
         var a = new FixedNode(10, 5);
         var s = ResolvedStyle.Default with { MinHeight = LengthOrAuto.FromPercent(50) };
-        FlexLayout.Layout(new Size(40, 20), c, new List<(ILayoutNode, ResolvedStyle)>{ (a, s) });
+        FlexLayout.Layout(new Size(40, 20), c, new List<(ILayoutNode, ResolvedStyle)> { (a, s) });
         Assert.InRange(a.ArrangedRect.Height, 10 - 1e-6, 10 + 1e-6);
     }
     [Fact]

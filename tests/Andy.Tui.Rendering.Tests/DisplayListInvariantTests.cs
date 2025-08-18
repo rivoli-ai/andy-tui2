@@ -8,8 +8,8 @@ public class DisplayListInvariantTests
     public void Empty_Intersection_Clip_Throws()
     {
         var b = new DisplayListBuilder();
-        b.PushClip(new ClipPush(0,0,2,2));
-        b.PushClip(new ClipPush(3,3,1,1)); // no overlap
+        b.PushClip(new ClipPush(0, 0, 2, 2));
+        b.PushClip(new ClipPush(3, 3, 1, 1)); // no overlap
         b.Pop();
         b.Pop();
         var dl = b.Build();
@@ -29,7 +29,7 @@ public class DisplayListInvariantTests
     public void Unbalanced_Leftover_Push_Throws()
     {
         var b = new DisplayListBuilder();
-        b.PushClip(new ClipPush(0,0,1,1));
+        b.PushClip(new ClipPush(0, 0, 1, 1));
         var dl = b.Build();
         Assert.Throws<DisplayListInvariantViolationException>(() => DisplayListInvariants.Validate(dl));
     }

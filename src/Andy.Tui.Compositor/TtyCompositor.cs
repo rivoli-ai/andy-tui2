@@ -7,8 +7,8 @@ public sealed class TtyCompositor : ICompositor
     public CellGrid Composite(Andy.Tui.DisplayList.DisplayList dl, (int Width, int Height) viewport)
     {
         var grid = new CellGrid(viewport.Width, viewport.Height);
-        var clipStack = new Stack<(int x,int y,int w,int h)>();
-        clipStack.Push((0,0,viewport.Width, viewport.Height));
+        var clipStack = new Stack<(int x, int y, int w, int h)>();
+        clipStack.Push((0, 0, viewport.Width, viewport.Height));
 
         foreach (var op in dl.Ops)
         {
@@ -22,7 +22,7 @@ public sealed class TtyCompositor : ICompositor
                     var y2 = Math.Min(top.y + top.h, cp.Y + cp.Height);
                     var w = Math.Max(0, x2 - x1);
                     var h = Math.Max(0, y2 - y1);
-                    clipStack.Push((x1,y1,w,h));
+                    clipStack.Push((x1, y1, w, h));
                     break;
                 case LayerPush:
                     // For TTY MVP, treat like a grouping scope only
@@ -48,24 +48,8 @@ public sealed class TtyCompositor : ICompositor
 
     public IReadOnlyList<DirtyRect> Damage(CellGrid previous, CellGrid next)
     {
-        var dirty = new List<DirtyRect>();
-        // Basic vertical scroll detection: if next appears as previous shifted by dy across most rows, mark only exposed rows as dirty
-        if (TryDetectVerticalScroll(previous, next, out int dy))
-        {
-            if (dy > 0)
-            {
-                // scrolled down: top dy rows are exposed
-                dirty.Add(new DirtyRect(0, 0, next.Width, Math.Min(dy, next.Height)));
-            }
-            else if (dy < 0)
-            {
-                // scrolled up: bottom -dy rows are exposed
-                int hh = Math.Min(-dy, next.Height);
-                dirty.Add(new DirtyRect(0, next.Height - hh, next.Width, hh));
-            }
-            // Return early under the assumption that scrolled content already matches; any in-row edits will be picked up by subsequent passes when needed
-            return dirty;
-        }
+        // Fallback: compute per-row dirty runs
+        var fallback = new List<DirtyRect>();
         int w = Math.Min(previous.Width, next.Width);
         int h = Math.Min(previous.Height, next.Height);
         for (int y = 0; y < h; y++)
@@ -73,20 +57,39 @@ public sealed class TtyCompositor : ICompositor
             int runStart = -1;
             for (int x = 0; x < w; x++)
             {
-                if (!previous[x,y].Equals(next[x,y]))
+                if (!previous[x, y].Equals(next[x, y]))
                 {
                     if (runStart == -1) runStart = x;
                 }
                 else if (runStart != -1)
                 {
-                    dirty.Add(new DirtyRect(runStart, y, (x - runStart), 1));
+                    fallback.Add(new DirtyRect(runStart, y, (x - runStart), 1));
                     runStart = -1;
                 }
             }
             if (runStart != -1)
-                dirty.Add(new DirtyRect(runStart, y, (w - runStart), 1));
+                fallback.Add(new DirtyRect(runStart, y, (w - runStart), 1));
         }
-        return dirty;
+
+        // Try scroll detection and prefer it only if cheaper than fallback
+        if (TryDetectVerticalScroll(previous, next, out int dy))
+        {
+            var scroll = new List<DirtyRect>();
+            if (dy > 0)
+            {
+                scroll.Add(new DirtyRect(0, 0, next.Width, Math.Min(dy, next.Height)));
+            }
+            else if (dy < 0)
+            {
+                int hh = Math.Min(-dy, next.Height);
+                scroll.Add(new DirtyRect(0, next.Height - hh, next.Width, hh));
+            }
+            int scrollArea = 0; foreach (var r in scroll) scrollArea += r.Width * r.Height;
+            int fallbackArea = 0; foreach (var r in fallback) fallbackArea += r.Width * r.Height;
+            if (scrollArea <= fallbackArea)
+                return scroll;
+        }
+        return fallback;
     }
 
     internal static bool TryDetectVerticalScroll(CellGrid previous, CellGrid next, out int dy)
@@ -96,7 +99,12 @@ public sealed class TtyCompositor : ICompositor
             return false;
 
         int h = previous.Height;
+        if (h < 3) return false; // avoid false positives on tiny viewports
         int w = previous.Width;
+
+        int bestCandidate = 0;
+        int bestMatches = -1;
+        int bestRowsCompared = 0;
 
         // Try small range of plausible scroll deltas
         for (int candidate = -Math.Min(5, h - 1); candidate <= Math.Min(5, h - 1); candidate++)
@@ -120,11 +128,22 @@ public sealed class TtyCompositor : ICompositor
                 }
                 if (rowEqual) matches++;
             }
-            if (rowsCompared > 0 && matches >= Math.Max(1, rowsCompared - 1))
+            if (matches > bestMatches || (matches == bestMatches && Math.Abs(candidate) < Math.Abs(bestCandidate)))
             {
-                dy = candidate;
-                return true;
+                bestMatches = matches;
+                bestCandidate = candidate;
+                bestRowsCompared = rowsCompared;
             }
+        }
+
+        if (bestMatches <= 0) return false;
+        // Expected comparable rows for a given dy is h - |dy|
+        int expectedComparable = h - Math.Abs(bestCandidate);
+        // Require near-perfect match across comparable rows (allow at most 1 mismatch)
+        if (bestRowsCompared == expectedComparable && bestMatches >= Math.Max(1, expectedComparable - 1))
+        {
+            dy = bestCandidate;
+            return true;
         }
         return false;
     }
@@ -158,7 +177,7 @@ public sealed class TtyCompositor : ICompositor
         return runs;
     }
 
-    private static void DrawRect(ref CellGrid grid, (int x,int y,int w,int h) clip, Rect r)
+    private static void DrawRect(ref CellGrid grid, (int x, int y, int w, int h) clip, Rect r)
     {
         int x0 = Math.Max(clip.x, r.X);
         int y0 = Math.Max(clip.y, r.Y);
@@ -173,7 +192,7 @@ public sealed class TtyCompositor : ICompositor
         }
     }
 
-    private static void DrawBorder(ref CellGrid grid, (int x,int y,int w,int h) clip, Border b)
+    private static void DrawBorder(ref CellGrid grid, (int x, int y, int w, int h) clip, Border b)
     {
         int x0 = Math.Max(clip.x, b.X);
         int y0 = Math.Max(clip.y, b.Y);
@@ -181,22 +200,22 @@ public sealed class TtyCompositor : ICompositor
         int y1 = Math.Min(clip.y + clip.h, b.Y + b.Height);
         for (int x = x0; x < x1; x++)
         {
-            grid[x, y0] = new Cell("─", 1, b.Color, grid[x,y0].Bg, CellAttrFlags.None);
-            grid[x, y1-1] = new Cell("─", 1, b.Color, grid[x,y1-1].Bg, CellAttrFlags.None);
+            grid[x, y0] = new Cell("─", 1, b.Color, grid[x, y0].Bg, CellAttrFlags.None);
+            grid[x, y1 - 1] = new Cell("─", 1, b.Color, grid[x, y1 - 1].Bg, CellAttrFlags.None);
         }
         for (int y = y0; y < y1; y++)
         {
-            grid[x0, y] = new Cell("│", 1, b.Color, grid[x0,y].Bg, CellAttrFlags.None);
-            grid[x1-1, y] = new Cell("│", 1, b.Color, grid[x1-1,y].Bg, CellAttrFlags.None);
+            grid[x0, y] = new Cell("│", 1, b.Color, grid[x0, y].Bg, CellAttrFlags.None);
+            grid[x1 - 1, y] = new Cell("│", 1, b.Color, grid[x1 - 1, y].Bg, CellAttrFlags.None);
         }
         // corners
-        grid[x0, y0] = new Cell("┌", 1, b.Color, grid[x0,y0].Bg, CellAttrFlags.None);
-        grid[x1-1, y0] = new Cell("┐", 1, b.Color, grid[x1-1,y0].Bg, CellAttrFlags.None);
-        grid[x0, y1-1] = new Cell("└", 1, b.Color, grid[x0,y1-1].Bg, CellAttrFlags.None);
-        grid[x1-1, y1-1] = new Cell("┘", 1, b.Color, grid[x1-1,y1-1].Bg, CellAttrFlags.None);
+        grid[x0, y0] = new Cell("┌", 1, b.Color, grid[x0, y0].Bg, CellAttrFlags.None);
+        grid[x1 - 1, y0] = new Cell("┐", 1, b.Color, grid[x1 - 1, y0].Bg, CellAttrFlags.None);
+        grid[x0, y1 - 1] = new Cell("└", 1, b.Color, grid[x0, y1 - 1].Bg, CellAttrFlags.None);
+        grid[x1 - 1, y1 - 1] = new Cell("┘", 1, b.Color, grid[x1 - 1, y1 - 1].Bg, CellAttrFlags.None);
     }
 
-    private static void DrawText(ref CellGrid grid, (int x,int y,int w,int h) clip, TextRun t)
+    private static void DrawText(ref CellGrid grid, (int x, int y, int w, int h) clip, TextRun t)
     {
         int x = Math.Max(clip.x, t.X);
         int y = t.Y;

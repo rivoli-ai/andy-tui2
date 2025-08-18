@@ -16,8 +16,8 @@ public class ScrollDirtyBudgetTests
         {
             for (int x = 0; x < width; x++)
             {
-                prev[x,y] = new Cell("A",1,new Andy.Tui.DisplayList.Rgb24(200,200,200), new Andy.Tui.DisplayList.Rgb24(0,0,0), Andy.Tui.DisplayList.CellAttrFlags.None);
-                next[x,y+1] = new Cell("A",1,new Andy.Tui.DisplayList.Rgb24(200,200,200), new Andy.Tui.DisplayList.Rgb24(0,0,0), Andy.Tui.DisplayList.CellAttrFlags.None);
+                prev[x, y] = new Cell("A", 1, new Andy.Tui.DisplayList.Rgb24(200, 200, 200), new Andy.Tui.DisplayList.Rgb24(0, 0, 0), Andy.Tui.DisplayList.CellAttrFlags.None);
+                next[x, y + 1] = new Cell("A", 1, new Andy.Tui.DisplayList.Rgb24(200, 200, 200), new Andy.Tui.DisplayList.Rgb24(0, 0, 0), Andy.Tui.DisplayList.CellAttrFlags.None);
             }
         }
         var comp = new TtyCompositor();
