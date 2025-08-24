@@ -6,4 +6,9 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
+  </ItemGroup>
+
 </Project>

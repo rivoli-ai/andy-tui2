@@ -55,6 +55,9 @@ test-results-*/
 .DS_Store
 **/.DS_Store
 
+# Rider/IDE per-user settings
+*.DotSettings.user
+
 # Container build artifacts
 container/bin-safe/
 container/bin-isolated/

@@ -19,6 +19,7 @@ public sealed class FrameScheduler
     private Andy.Tui.Observability.IFrameMetricsSink? _metricsSink;
     private Andy.Tui.Observability.IFrameTimingsSink? _timingsSink;
     private CellGrid? _previousGrid;
+    private bool _forceFullClear;
 
     public FrameScheduler(IClock? clock = null, int targetFps = 60)
     {
@@ -28,6 +29,7 @@ public sealed class FrameScheduler
 
     public void SetMetricsSink(Andy.Tui.Observability.IFrameMetricsSink sink) => _metricsSink = sink;
     public void SetTimingsSink(Andy.Tui.Observability.IFrameTimingsSink sink) => _timingsSink = sink;
+    public void SetForceFullClear(bool enabled) => _forceFullClear = enabled;
 
     public async Task RenderOnceAsync(DisplayList.DisplayList dl, (int W, int H) viewport, TerminalCapabilities caps, IPtyIo pty, CancellationToken ct)
     {
@@ -39,7 +41,7 @@ public sealed class FrameScheduler
         var start = _clock.NowMs;
         int bytesLen = 0;
         double dirtyPercent = 0.0;
-        long compMs=0, damageMs=0, runsMs=0, encMs=0, writeMs=0;
+        long compMs = 0, damageMs = 0, runsMs = 0, encMs = 0, writeMs = 0;
         using (Tracer.BeginSpan("Scheduler", "frame"))
         {
             var comp = new TtyCompositor();
@@ -47,7 +49,9 @@ public sealed class FrameScheduler
             var cells = comp.Composite(dl, viewport);
             compMs = sw.ElapsedMilliseconds;
             sw.Restart();
-            var prev = _previousGrid ?? new CellGrid(viewport.W, viewport.H);
+            // If viewport size changed, compare against a fresh empty grid to force full repaint
+            bool sizeChangedPre = _previousGrid == null || _previousGrid.Width != viewport.W || _previousGrid.Height != viewport.H;
+            var prev = sizeChangedPre ? new CellGrid(viewport.W, viewport.H) : (_previousGrid ?? new CellGrid(viewport.W, viewport.H));
             var dirty = comp.Damage(prev, cells);
             damageMs = sw.ElapsedMilliseconds;
             sw.Restart();
@@ -59,7 +63,23 @@ public sealed class FrameScheduler
             encMs = sw.ElapsedMilliseconds;
             bytesLen = bytes.Length;
             sw.Restart();
-            await pty.WriteAsync(bytes, ct);
+            // Do not inject separate EOL clears here; rely on widgets to overwrite backgrounds
+            // If viewport size changed, or forced, clear the screen before drawing
+            bool sizeChanged = sizeChangedPre;
+            if (sizeChanged || _forceFullClear)
+            {
+                var clear = System.Text.Encoding.UTF8.GetBytes("\x1b[2J\x1b[H");
+                var body = bytes.ToArray();
+                var combined = new byte[clear.Length + body.Length];
+                System.Buffer.BlockCopy(clear, 0, combined, 0, clear.Length);
+                System.Buffer.BlockCopy(body, 0, combined, clear.Length, body.Length);
+                await pty.WriteAsync(combined, ct);
+                bytesLen = combined.Length;
+            }
+            else
+            {
+                await pty.WriteAsync(bytes, ct);
+            }
             writeMs = sw.ElapsedMilliseconds;
             // compute dirty coverage
             int totalArea = Math.Max(1, viewport.W * viewport.H);
@@ -77,6 +97,11 @@ public sealed class FrameScheduler
         var fps = frameTimeMs > 0 ? 1000.0 / frameTimeMs : _targetFrameMs;
         _emaFps = _emaFps <= 0 ? fps : (_emaFps * 0.8 + fps * 0.2);
         _metricsSink?.Update(_emaFps, dirtyPercent, bytesLen);
+        if (_metricsSink is HudOverlay hud)
+        {
+            hud.ViewportCols = viewport.W;
+            hud.ViewportRows = viewport.H;
+        }
         _timingsSink?.UpdateTimings(new Andy.Tui.Observability.FrameTimings(
             ComposeMs: 0,
             StyleMs: 0,
@@ -90,4 +115,6 @@ public sealed class FrameScheduler
         ));
         return (bytesLen, elapsed);
     }
+
+    // EOL clears are handled by widgets drawing background/space; keep core minimal for now
 }

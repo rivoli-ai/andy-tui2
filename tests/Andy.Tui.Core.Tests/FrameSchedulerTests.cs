@@ -75,4 +75,36 @@ public class FrameSchedulerTests
         Assert.True(hud.Fps < fps1); // EMA should decrease after a long interval
         Assert.InRange(hud.DirtyPercent, 0.02, 0.05); // 1 of 30 cells ≈ 3.3%
     }
+
+    [Fact]
+    public async Task Resize_Triggers_Full_Repaint_And_Preserves_Content()
+    {
+        var clock = new SimpleManualClock();
+        var sched = new FrameScheduler(clock, targetFps: 1000);
+        var caps = new TerminalCapabilities { TrueColor = true, Palette256 = true };
+        var pty = new BufferPty();
+
+        DisplayList.DisplayList BuildDl()
+        {
+            var b = new DisplayListBuilder();
+            b.PushClip(new ClipPush(0, 0, 40, 6));
+            b.DrawRect(new Rect(0, 0, 40, 6, new Rgb24(0, 0, 0)));
+            b.DrawText(new TextRun(1, 1, "HEADER", new Rgb24(255, 255, 255), null, CellAttrFlags.Bold));
+            b.DrawText(new TextRun(1, 2, "ROW1", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+            b.DrawText(new TextRun(1, 3, "ROW2", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+            b.Pop();
+            return b.Build();
+        }
+
+        await sched.RenderOnceAsync(BuildDl(), (80, 24), caps, pty, CancellationToken.None);
+        clock.Advance(16);
+        await sched.RenderOnceAsync(BuildDl(), (60, 20), caps, pty, CancellationToken.None);
+        clock.Advance(16);
+        await sched.RenderOnceAsync(BuildDl(), (80, 24), caps, pty, CancellationToken.None);
+
+        Assert.Contains("\u001b[2J", pty.Last); // clear screen on resize
+        Assert.Contains("HEADER", pty.Last);
+        Assert.Contains("ROW1", pty.Last);
+        Assert.Contains("ROW2", pty.Last);
+    }
 }

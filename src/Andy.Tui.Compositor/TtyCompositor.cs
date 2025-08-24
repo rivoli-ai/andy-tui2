@@ -48,6 +48,11 @@ public sealed class TtyCompositor : ICompositor
 
     public IReadOnlyList<DirtyRect> Damage(CellGrid previous, CellGrid next)
     {
+        // If viewport size changed, repaint entire next frame to avoid stale edges
+        if (previous.Width != next.Width || previous.Height != next.Height)
+        {
+            return new List<DirtyRect> { new DirtyRect(0, 0, next.Width, next.Height) };
+        }
         // Fallback: compute per-row dirty runs
         var fallback = new List<DirtyRect>();
         int w = Math.Min(previous.Width, next.Width);

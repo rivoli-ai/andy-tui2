@@ -36,10 +36,10 @@ public class FocusManagerTests
         fm.Register(10); fm.Register(11); // in scope
         // traversal should stay within scope {10,11}
         fm.FocusNext();
-        Assert.Contains(fm.ActiveId!.Value, new[]{10,11});
+        Assert.Contains(fm.ActiveId!.Value, new[] { 10, 11 });
         var first = fm.ActiveId;
         fm.FocusNext();
-        Assert.Contains(fm.ActiveId!.Value, new[]{10,11});
+        Assert.Contains(fm.ActiveId!.Value, new[] { 10, 11 });
         Assert.NotEqual(first, fm.ActiveId);
         fm.PopScope();
         // after popping, global traversal resumes

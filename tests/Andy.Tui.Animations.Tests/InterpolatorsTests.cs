@@ -17,8 +17,8 @@ public class InterpolatorsTests
     [Fact]
     public void Parses_Simple_Color_Transition()
     {
-        var from = new Andy.Tui.DisplayList.Rgb24(0,0,0);
-        var to = new Andy.Tui.DisplayList.Rgb24(255,255,255);
+        var from = new Andy.Tui.DisplayList.Rgb24(0, 0, 0);
+        var to = new Andy.Tui.DisplayList.Rgb24(255, 255, 255);
         var t = TransitionParser.TryParseColor("color 200ms linear", from, to);
         Assert.NotNull(t);
         Assert.Equal(200, t!.DurationMs);
