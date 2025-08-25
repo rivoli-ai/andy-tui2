@@ -17,23 +17,42 @@
     <None Include="..\..\assets\andy_tui_icon.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 
+  <!-- Build dependencies but don't include as NuGet package references -->
   <ItemGroup>
-    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
-    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />
-    <!-- Backends planned for later; leave referenced so package aggregates -->
-    <ProjectReference Include="..\Andy.Tui.Backend.Web\Andy.Tui.Backend.Web.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Native\Andy.Tui.Backend.Native.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Web\Andy.Tui.Backend.Web.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Native\Andy.Tui.Backend.Native.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Include all built DLLs in the package -->
+  <ItemGroup>
+    <None Include="..\Andy.Tui.Core\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Compose\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Compose.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Style\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Style.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Layout\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Layout.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Text\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Text.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.DisplayList\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.DisplayList.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Compositor\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Compositor.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Backend.Terminal\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Terminal.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Input\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Input.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Animations\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Animations.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Virtualization\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Virtualization.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Widgets\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Widgets.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Observability\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Observability.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Backend.Web\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Web.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <None Include="..\Andy.Tui.Backend.Native\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Native.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>

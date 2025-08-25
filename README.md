@@ -4,7 +4,7 @@
 [![CI](https://github.com/rivoli-ai/andy-tui2/actions/workflows/ci.yml/badge.svg)](https://github.com/rivoli-ai/andy-tui2/actions/workflows/ci.yml)
 [![Build and Release](https://github.com/rivoli-ai/andy-tui2/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/rivoli-ai/andy-tui2/actions/workflows/build-and-release.yml)
 
-A modern, reactive TUI framework for .NET 8 with a SwiftUI-like DSL, WPF-style bindings, a pragmatic CSS subset, a unified rendering pipeline, and first-class observability. Built for high-performance dashboards, editors, and real-time log viewers with deterministic tests and perf gates.
+A modern, reactive TUI framework for .NET 8 with declarative components, reactive bindings, a pragmatic CSS subset, a unified rendering pipeline, and first-class observability. Built for high-performance terminal applications, dashboards, and real-time log viewers.
 
 > ⚠️ **ALPHA RELEASE WARNING** ⚠️
 > 
@@ -20,15 +20,17 @@ A modern, reactive TUI framework for .NET 8 with a SwiftUI-like DSL, WPF-style b
 > 
 > **USE AT YOUR OWN RISK**
 
-## Features (high level)
-- Reactive core (signals, computed, effects), bindings, converters, validators, commands
-- Declarative DSL for composing views and modifiers
-- CSS subset: cascade, specificity, variables, pseudo-classes, media
-- Layout engine (Flex MVP), Text engine (graphemes, widths, wrapping)
-- Unified pipeline: Compose → Style → Layout → DisplayList → Compositor → Backend
-- Backends: Terminal (ANSI encoder). Web/Native planned
-- Observability: structured logging, trace spans, HUD, capture/replay
-- Deterministic mode for stable tests; Virtual Screen oracle
+## Features
+- **Reactive Core**: Signals, computed values, effects, and data bindings
+- **Component System**: Declarative component composition with modifiers
+- **CSS Styling**: Subset of CSS with cascade, specificity, variables, pseudo-classes
+- **Flex Layout**: Modern flexbox-based layout engine
+- **Rich Text**: Unicode-aware text rendering with grapheme support
+- **Widget Library**: 80+ pre-built widgets (tables, forms, charts, etc.)
+- **Unified Pipeline**: Compose → Style → Layout → DisplayList → Compositor → Backend
+- **Terminal Backend**: Full ANSI/escape sequence support
+- **Observability**: Built-in logging, tracing, performance monitoring
+- **Testing**: Deterministic mode for reliable unit tests
 
 ## Repository structure
 - `src/` — library projects (packable)

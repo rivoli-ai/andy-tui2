@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/vpre/Andy.Tui)](https://www.nuget.org/packages/Andy.Tui/)
 
-A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with a declarative API inspired by SwiftUI and React.
+A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with declarative component composition and reactive state management.
 
 > ⚠️ **ALPHA RELEASE WARNING** ⚠️
 > 
@@ -21,7 +21,7 @@ A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with a de
 ## Features
 
 - **Reactive Core**: Signals, computed values, and effects for state management
-- **Declarative DSL**: SwiftUI-like syntax for composing views
+- **Component System**: Declarative component composition with modifiers
 - **CSS Styling**: Subset of CSS with cascade, specificity, variables, and pseudo-classes
 - **Flex Layout**: Modern flexbox-based layout engine
 - **Rich Widgets**: 80+ pre-built widgets including tables, charts, forms, and more
@@ -32,13 +32,11 @@ A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with a de
 
 ```csharp
 using Andy.Tui;
+using Andy.Tui.Widgets;
 
-var app = new TerminalApp();
-app.Run(() => 
-    VStack()
-        .Add(Text("Hello, TUI!").ForegroundColor(Color.Green))
-        .Add(Button("Click me").OnClick(() => Console.Beep()))
-);
+// Example code - API still in development
+var label = new Label { Text = "Hello, TUI!" };
+label.Style.ForegroundColor = Color.Green;
 ```
 
 ## Installation
