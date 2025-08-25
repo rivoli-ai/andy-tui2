@@ -1,6 +1,24 @@
 # Andy.Tui v2 (.NET 8)
 
+[![NuGet](https://img.shields.io/nuget/vpre/Andy.Tui)](https://www.nuget.org/packages/Andy.Tui/)
+[![CI](https://github.com/rivoli-ai/andy-tui2/actions/workflows/ci.yml/badge.svg)](https://github.com/rivoli-ai/andy-tui2/actions/workflows/ci.yml)
+[![Build and Release](https://github.com/rivoli-ai/andy-tui2/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/rivoli-ai/andy-tui2/actions/workflows/build-and-release.yml)
+
 A modern, reactive TUI framework for .NET 8 with a SwiftUI-like DSL, WPF-style bindings, a pragmatic CSS subset, a unified rendering pipeline, and first-class observability. Built for high-performance dashboards, editors, and real-time log viewers with deterministic tests and perf gates.
+
+> ⚠️ **ALPHA RELEASE WARNING** ⚠️
+> 
+> This software is in ALPHA stage. **NO GUARANTEES** are made about its functionality, stability, or safety.
+> 
+> **CRITICAL WARNINGS:**
+> - This library performs **DESTRUCTIVE OPERATIONS** on files and directories
+> - Permission management is **NOT FULLY TESTED** and may have security vulnerabilities
+> - **DO NOT USE** in production environments
+> - **DO NOT USE** on systems with critical or irreplaceable data
+> - **DO NOT USE** on systems without complete, verified backups
+> - The authors assume **NO RESPONSIBILITY** for data loss, system damage, or security breaches
+> 
+> **USE AT YOUR OWN RISK**
 
 ## Features (high level)
 - Reactive core (signals, computed, effects), bindings, converters, validators, commands
@@ -33,10 +51,27 @@ A modern, reactive TUI framework for .NET 8 with a SwiftUI-like DSL, WPF-style b
 - `docs/` — design, roadmap, phases, testing, perf plans
 - `assets/` — icons and images used for documentation and NuGet packaging
 
-## Getting started
-Prerequisites: .NET SDK 8.0+
+## Installation
 
-- Restore and build:
+### Via NuGet Package Manager
+```bash
+dotnet add package Andy.Tui --prerelease
+```
+
+### Via PackageReference
+```xml
+<PackageReference Include="Andy.Tui" Version="*-rc.*" />
+```
+
+> **Note**: Pre-release packages are published automatically for every commit to main branch.
+
+## Getting started
+
+### Prerequisites
+- .NET SDK 8.0 or later
+- Terminal with ANSI color support (most modern terminals)
+
+### Building from source
   - `dotnet restore`
   - `dotnet build -c Release`
 - Run tests:
@@ -45,15 +80,22 @@ Prerequisites: .NET SDK 8.0+
   - `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults`
   - `reportgenerator -reports:"./TestResults/*/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:Html`
 
-## Packing and publishing
-All libraries under `src/` are packable. Packaging metadata is centralized via `Directory.Build.props` (SourceLink, icon, README).
+## Package Publishing
 
-- Pack all libraries:
-  - `dotnet pack -c Release -o ./nupkg`
-- Publish a package to NuGet (example for Core):
-  - `dotnet nuget push ./nupkg/Andy.Tui.Core.0.1.0.nupkg -k <NUGET_API_KEY> -s https://api.nuget.org/v3/index.json`
+### Automated Publishing
+The CI/CD pipeline automatically publishes NuGet packages:
+- **Pre-release versions** (e.g., `2025.8.25-rc.30`): Published on every push to `main` branch
+- **Release versions** (e.g., `1.0.0`): Published when creating a tag matching `v*`
 
-Tip: Consider publishing only the surface packages initially (e.g., `Andy.Tui.Core`, `Andy.Tui.Compose`, `Andy.Tui.DisplayList`, `Andy.Tui.Compositor`, `Andy.Tui.Backend.Terminal`) and mark pre-release versions until APIs stabilize.
+### Manual Publishing
+To manually pack and publish:
+```bash
+# Pack all libraries
+dotnet pack -c Release -o ./nupkg
+
+# Publish to NuGet (requires API key)
+dotnet nuget push ./nupkg/Andy.Tui.*.nupkg -k <NUGET_API_KEY> -s https://api.nuget.org/v3/index.json
+```
 
 ## Development workflow
 - Format: `dotnet format`
@@ -74,8 +116,44 @@ Tip: Consider publishing only the surface packages initially (e.g., `Andy.Tui.Co
   - `docs/21_Phase_5_Additional_Backends.md`
 - Legacy salvage audit (what to adopt/adapt/avoid): `docs/22_Salvage_Audit_from_v1.md`
 
-## Status
-The project is scaffolded with solution and projects, tests run green on templates, and NuGet packages pack successfully. Implementation proceeds by phases per the docs.
+## Current Status
+
+### Phase Progress
+- ✅ **Phase 0**: Foundations - Complete
+- ✅ **Phase 1**: Visual Core - Complete  
+- ✅ **Phase 2**: Rendering Core - Complete
+- ✅ **Phase 3**: Interactivity & Animations - Complete
+- ✅ **Phase 4**: Virtualization & Widgets - Complete (80+ widgets implemented)
+- 🚧 **Phase 5**: Additional Backends - Planned
+
+### CI/CD Status
+- ✅ Automated builds on push/PR
+- ✅ Test suite runs (with performance tests skipped in CI)
+- ✅ NuGet package publishing to nuget.org
+- ⚠️ Some Playwright tests disabled pending CI browser setup
+
+### Known Issues
+- Performance tests may fail in CI due to environment variability
+- Playwright browser tests require manual browser installation
+- Some widget rendering edge cases in complex layouts
+
+## Contributing
+
+Contributions are welcome! Please:
+1. Run tests before submitting PRs: `dotnet test`
+2. Follow existing code style (use `dotnet format`)
+3. Add tests for new functionality
+4. Update documentation as needed
 
 ## License
-MIT (see license file in repository when added).
+
+Apache-2.0 License. See [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/rivoli-ai/andy-tui2/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/rivoli-ai/andy-tui2/discussions)
+
+---
+
+**Remember**: This is ALPHA software. Use at your own risk and always maintain backups.

@@ -9,7 +9,13 @@
     <PackageProjectUrl>https://github.com/rivoli-ai/andy-tui2</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rivoli-ai/andy-tui2</RepositoryUrl>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\assets\andy_tui_icon.png" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" />
