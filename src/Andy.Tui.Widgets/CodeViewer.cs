@@ -85,7 +85,7 @@ namespace Andy.Tui.Widgets
         private static IEnumerable<(string tok, Tok kind)> TokenizeCs(string line)
         {
             if (string.IsNullOrEmpty(line)) yield break;
-            int i = 0; bool inStr = false; bool inChar = false; bool inBlock = false; bool inLine = false;
+            int i = 0; bool inBlock = false; bool inLine = false;
             while (i < line.Length)
             {
                 if (inLine) { yield return (line.Substring(i), Tok.Comment); yield break; }

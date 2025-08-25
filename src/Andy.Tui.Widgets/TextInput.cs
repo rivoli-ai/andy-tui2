@@ -5,6 +5,7 @@ namespace Andy.Tui.Widgets;
 
 public sealed class TextInput
 {
+    public bool ShowCaret { get; private set; } = true;
     public string Text { get; private set; } = string.Empty;
     public int Cursor { get; private set; }
     public bool Focused { get; private set; }
@@ -15,6 +16,7 @@ public sealed class TextInput
     public void SetText(string text) { Text = text; Cursor = Math.Min(Cursor, Text.Length); }
     public void SetCursor(int pos) => Cursor = Math.Clamp(pos, 0, Text.Length);
     public void SetFocused(bool f) => Focused = f;
+    public void SetShowCaret(bool show) => ShowCaret = show;
 
     public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
@@ -29,10 +31,10 @@ public sealed class TextInput
         var shown = (Text.Length <= maxChars) ? Text : Text.Substring(0, maxChars);
         var attrs = Focused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None;
         builder.DrawText(new DL.TextRun(x + 1, y, shown, Fg, Bg, attrs));
-        // simple caret when focused
-        if (Focused)
+        // caret option when focused
+        if (Focused && ShowCaret)
         {
-            int caretX = x + 1 + Math.Min(shown.Length, maxChars);
+            int caretX = x + 1 + Math.Min(Cursor, maxChars);
             if (caretX < x + w - 1)
             {
                 builder.DrawText(new DL.TextRun(caretX, y, "|", new DL.Rgb24(240, 240, 240), Bg, DL.CellAttrFlags.None));

@@ -20,7 +20,7 @@ public static class SparklinesDemo
         try
         {
             var rnd = new System.Random(42);
-            double mu = 0.0, sigma = 1.0;
+            // Removed unused variables to silence CS0219 warnings
             var values = Enumerable.Range(0, 120).Select(i => Math.Sin(i * 0.1) * 10 + rnd.NextDouble() * 2 - 1).ToArray();
             var spark = new Andy.Tui.Widgets.Sparkline();
             spark.SetValues(values);
