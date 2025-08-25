@@ -106,17 +106,12 @@ dotnet nuget push ./nupkg/Andy.Tui.*.nupkg -k <NUGET_API_KEY> -s https://api.nug
 - Run tests before committing significant changes: `dotnet test`
 - Generate coverage for meaningful refactors/features
 
-## Roadmap & phase plans
-- Integration roadmap: `docs/13_Integration_Roadmap.md`
-- .NET implementation plan: `docs/15_DotNet_Implementation_Plan.md`
-- Detailed phases:
-  - `docs/16_Phase_0_Foundations.md`
-  - `docs/17_Phase_1_Visual_Core.md`
-  - `docs/18_Phase_2_Rendering_Core.md`
-  - `docs/19_Phase_3_Interactivity_Animations.md`
-  - `docs/20_Phase_4_Virtualization_Widgets.md`
-  - `docs/21_Phase_5_Additional_Backends.md`
-- Legacy salvage audit (what to adopt/adapt/avoid): `docs/22_Salvage_Audit_from_v1.md`
+## Documentation
+
+- 📖 [Getting Started](docs/GETTING_STARTED.md) - Installation, basic concepts, and examples
+- 🏗️ [Architecture](docs/ARCHITECTURE.md) - System design and rendering pipeline
+- 🎨 [Widget Catalog](docs/WIDGETS.md) - Complete list of 80+ UI components
+- 📚 [Documentation Index](docs/README.md) - Full documentation overview
 
 ## Current Status
 
