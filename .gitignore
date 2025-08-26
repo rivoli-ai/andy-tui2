@@ -58,6 +58,12 @@ test-results-*/
 # Rider/IDE per-user settings
 *.DotSettings.user
 
+# JetBrains IDEs
+.idea/
+
+# Benchmarks (removed from repo)
+benchmarks/Andy.Tui.Benchmarks/
+
 # Container build artifacts
 container/bin-safe/
 container/bin-isolated/
