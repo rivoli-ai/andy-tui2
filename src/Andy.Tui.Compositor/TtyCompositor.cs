@@ -169,7 +169,7 @@ public sealed class TtyCompositor : ICompositor
                 var fg = cell.Fg;
                 var bg = cell.Bg;
                 var text = new System.Text.StringBuilder();
-                while (x < end)
+                while (x < end && x < grid.Width) // Ensure we don't exceed grid width
                 {
                     var c2 = grid[x, row];
                     if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg) break;
@@ -177,7 +177,27 @@ public sealed class TtyCompositor : ICompositor
                     text.Append(c2.Grapheme ?? " ");
                     x++;
                 }
-                runs.Add(new RowRun(row, start, x, attrs, fg, bg, text.ToString()));
+
+                var runText = text.ToString();
+
+                // Ensure we never exceed grid width
+                if (start >= grid.Width)
+                    continue; // Skip runs that start past the grid
+
+                // Truncate text if needed
+                int maxLen = grid.Width - start;
+                if (runText.Length > maxLen)
+                {
+                    runText = runText.Substring(0, maxLen);
+                }
+
+                // Only add non-empty runs
+                if (runText.Length > 0)
+                {
+                    // ColEnd must match the actual text length
+                    var actualEnd = start + runText.Length;
+                    runs.Add(new RowRun(row, start, actualEnd, attrs, fg, bg, runText));
+                }
             }
         }
         return runs;
@@ -193,6 +213,8 @@ public sealed class TtyCompositor : ICompositor
         {
             for (int x = x0; x < x1; x++)
             {
+                // Use explicit space with both fg and bg set to fill color
+                // This ensures the cell is properly cleared
                 grid[x, y] = new Cell(" ", 1, r.Fill, r.Fill, CellAttrFlags.None);
             }
         }

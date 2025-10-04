@@ -82,7 +82,6 @@ public sealed class AnsiEncoder : IAnsiEncoder
                 currentBg = run.Bg;
             }
 
-            // We cannot determine exact fg/bg per run without carrying them; encode just text with attrs.
             sb.Append(run.Text);
         }
 

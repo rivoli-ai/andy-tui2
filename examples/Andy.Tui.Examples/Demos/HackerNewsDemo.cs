@@ -27,7 +27,7 @@ public static class HackerNewsDemo
     public static async Task Run((int Width, int Height) viewport, TerminalCapabilities caps)
     {
         var scheduler = new Andy.Tui.Core.FrameScheduler();
-        scheduler.SetForceFullClear(true); // Force full screen clear each frame to prevent artifacts
+        // scheduler.SetForceFullClear(true);
         var hud = new Andy.Tui.Observability.HudOverlay { Enabled = false };
         scheduler.SetMetricsSink(hud);
         var pty = new StdoutPty();
@@ -248,10 +248,10 @@ public static class HackerNewsDemo
             var story = state.Stories[i];
             bool selected = i == state.SelectedIndex;
 
-            // Background for selection
+            // Background for selection - start at column 1 to avoid polluting column 0
             if (selected)
             {
-                wb.DrawRect(new DL.Rect(0, y, viewport.Width, 2, new DL.Rgb24(50, 50, 50)));
+                wb.DrawRect(new DL.Rect(1, y, viewport.Width - 1, 2, new DL.Rgb24(50, 50, 50)));
             }
 
             // Rank and score
@@ -387,7 +387,8 @@ public static class HackerNewsDemo
 
             if (selected)
             {
-                wb.DrawRect(new DL.Rect(0, y, viewport.Width, 1, new DL.Rgb24(50, 50, 50)));
+                // Draw selection background starting at baseIndent to avoid polluting column 0
+                wb.DrawRect(new DL.Rect(baseIndent, y, viewport.Width - baseIndent, 1, new DL.Rgb24(50, 50, 50)));
             }
 
             // Subtle hierarchy indicators - vertical bars for nested comments
@@ -407,9 +408,8 @@ public static class HackerNewsDemo
             {
                 var text = StripHtml(comment.Text);
                 var textIndent = baseIndent + 2;
-                // Add extra margin to prevent terminal auto-wrap at edge
                 var maxWidth = viewport.Width - textIndent - 4;
-                if (maxWidth < 20) maxWidth = 20; // Minimum readable width
+                if (maxWidth < 20) maxWidth = 20;
                 var wrappedText = WrapText(text, maxWidth);
 
                 // Show as many lines as we have space for
@@ -419,22 +419,14 @@ public static class HackerNewsDemo
                     if (y >= viewport.Height)
                         break;
 
-                    // Draw hierarchy bars for text lines too
+                            // Draw hierarchy bars for text lines too
                     for (int d = 0; d < comment.Depth; d++)
                     {
                         var barColor = new DL.Rgb24(60, 60, 60);
                         wb.DrawText(new DL.TextRun(2 + d * 2, y, "│", barColor, HN_DARK_BG, DL.CellAttrFlags.None));
                     }
 
-                    // CRITICAL: Verify line length doesn't exceed maxWidth
-                    var actualLine = line.Length > maxWidth ? line.Substring(0, maxWidth) : line;
-                    if (textIndent + actualLine.Length >= viewport.Width)
-                    {
-                        // This should never happen - truncate if it does
-                        actualLine = actualLine.Substring(0, Math.Max(0, viewport.Width - textIndent - 1));
-                    }
-
-                    wb.DrawText(new DL.TextRun(textIndent, y++, actualLine, HN_BEIGE, HN_DARK_BG, DL.CellAttrFlags.None));
+                    wb.DrawText(new DL.TextRun(textIndent, y++, line, HN_BEIGE, HN_DARK_BG, DL.CellAttrFlags.None));
                 }
             }
 
