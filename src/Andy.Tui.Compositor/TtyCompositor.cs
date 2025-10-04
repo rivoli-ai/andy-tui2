@@ -173,7 +173,8 @@ public sealed class TtyCompositor : ICompositor
                 {
                     var c2 = grid[x, row];
                     if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg) break;
-                    text.Append(c2.Grapheme);
+                    // Use space for null graphemes to maintain correct text length
+                    text.Append(c2.Grapheme ?? " ");
                     x++;
                 }
                 runs.Add(new RowRun(row, start, x, attrs, fg, bg, text.ToString()));
