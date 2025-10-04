@@ -406,7 +406,9 @@ public static class HackerNewsDemo
             {
                 var text = StripHtml(comment.Text);
                 var textIndent = baseIndent + 2;
-                var maxWidth = viewport.Width - textIndent - 2;
+                // Add extra margin to prevent terminal auto-wrap at edge
+                var maxWidth = viewport.Width - textIndent - 4;
+                if (maxWidth < 20) maxWidth = 20; // Minimum readable width
                 var wrappedText = WrapText(text, maxWidth);
 
                 // Show as many lines as we have space for
