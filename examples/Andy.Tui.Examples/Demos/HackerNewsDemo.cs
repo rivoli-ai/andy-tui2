@@ -94,36 +94,42 @@ public static class HackerNewsDemo
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.T || (k.Key == ConsoleKey.D1 && (k.Modifiers & ConsoleModifiers.Control) == 0)))
                     {
                         state.CurrentFilter = StoryFilter.Top;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.Top);
                     }
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.N || k.Key == ConsoleKey.D2))
                     {
                         state.CurrentFilter = StoryFilter.New;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.New);
                     }
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.B || k.Key == ConsoleKey.D3))
                     {
                         state.CurrentFilter = StoryFilter.Best;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.Best);
                     }
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.A || k.Key == ConsoleKey.D4))
                     {
                         state.CurrentFilter = StoryFilter.Ask;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.Ask);
                     }
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.S || k.Key == ConsoleKey.D5))
                     {
                         state.CurrentFilter = StoryFilter.Show;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.Show);
                     }
                     else if (!state.CommandPaletteOpen && (k.Key == ConsoleKey.J || k.Key == ConsoleKey.D6))
                     {
                         state.CurrentFilter = StoryFilter.Jobs;
+                        state.CurrentPage = 0;
                         state.SelectedIndex = 0;
                         _ = LoadStoriesAsync(api, cache, state, StoryFilter.Jobs);
                     }
@@ -199,18 +205,27 @@ public static class HackerNewsDemo
         b.DrawText(new DL.TextRun(width - hint.Length - 2, 0, hint, HN_BLACK, null, DL.CellAttrFlags.None));
 
         // Second line with navigation
-        var nav = "[T]op [N]ew [B]est [A]sk [S]how [J]obs [/]Search [ESC]Quit";
-        if (state.CurrentView != ViewMode.StoryList)
-        {
-            nav = "[ESC/Del]Back " + nav;
-        }
+        var nav = state.CurrentView == ViewMode.StoryList
+            ? "[T]op [N]ew [B]est [A]sk [S]how [J]obs </> Page [/]Search [ESC]Quit"
+            : "[ESC/Del]Back [T]op [N]ew [B]est [A]sk [S]how [J]obs [/]Search [ESC]Quit";
         b.DrawText(new DL.TextRun(1, 1, nav, HN_GRAY, null, DL.CellAttrFlags.None));
 
-        // Status line
-        var status = state.Loading ? "Loading..." : $"{state.Stories.Count} stories";
+        // Status line with pagination info
+        var status = state.Loading ? "Loading..." : "";
         if (!string.IsNullOrEmpty(state.StatusMessage))
         {
             status = state.StatusMessage;
+        }
+        else if (state.AllStoryIds.Count > 0)
+        {
+            var totalPages = (int)Math.Ceiling((double)state.AllStoryIds.Count / state.StoriesPerPage);
+            var startNum = state.CurrentPage * state.StoriesPerPage + 1;
+            var endNum = Math.Min((state.CurrentPage + 1) * state.StoriesPerPage, state.AllStoryIds.Count);
+            status = $"Page {state.CurrentPage + 1}/{totalPages} (stories {startNum}-{endNum} of {state.AllStoryIds.Count})";
+        }
+        else
+        {
+            status = $"{state.Stories.Count} stories";
         }
 
         // Add cache stats if available
@@ -254,8 +269,9 @@ public static class HackerNewsDemo
                 wb.DrawRect(new DL.Rect(1, y, viewport.Width - 1, 2, new DL.Rgb24(50, 50, 50)));
             }
 
-            // Rank and score
-            var rank = $"{i + 1}.";
+            // Rank and score (global position across all pages)
+            var globalIndex = state.CurrentPage * state.StoriesPerPage + i + 1;
+            var rank = $"{globalIndex}.";
             var score = story.Score.HasValue ? $"▲{story.Score}" : "";
             wb.DrawText(new DL.TextRun(1, y, rank, HN_GRAY, null, DL.CellAttrFlags.None));
             wb.DrawText(new DL.TextRun(5, y, score, HN_ORANGE, null, selected ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None));
@@ -538,6 +554,27 @@ public static class HackerNewsDemo
         {
             _ = LoadStoriesAsync(api, cache, state, state.CurrentFilter);
         }
+        else if (k.KeyChar == '>')
+        {
+            // Next page
+            var totalPages = (int)Math.Ceiling((double)state.AllStoryIds.Count / state.StoriesPerPage);
+            if (state.CurrentPage < totalPages - 1)
+            {
+                state.CurrentPage++;
+                state.SelectedIndex = 0;
+                _ = LoadStoriesAsync(api, cache, state, state.CurrentFilter);
+            }
+        }
+        else if (k.KeyChar == '<')
+        {
+            // Previous page
+            if (state.CurrentPage > 0)
+            {
+                state.CurrentPage--;
+                state.SelectedIndex = 0;
+                _ = LoadStoriesAsync(api, cache, state, state.CurrentFilter);
+            }
+        }
     }
 
     private static void HandleStoryDetailInput(ConsoleKeyInfo k, AppState state, (int Width, int Height) viewport)
@@ -637,30 +674,37 @@ public static class HackerNewsDemo
         {
             var cacheKey = filter.ToString();
 
-            // Try cache first
-            List<int> ids;
+            // Try cache first for all IDs
+            List<int> allIds;
             if (cache.TryGetStoryList(cacheKey, out var cachedIds) && cachedIds != null)
             {
-                ids = cachedIds;
+                allIds = cachedIds;
                 state.StatusMessage = "Loading from cache...";
             }
             else
             {
-                ids = filter switch
+                // Fetch up to 500 story IDs
+                allIds = filter switch
                 {
-                    StoryFilter.New => await api.GetNewStoriesAsync(50),
-                    StoryFilter.Best => await api.GetBestStoriesAsync(50),
-                    StoryFilter.Ask => await api.GetAskStoriesAsync(50),
-                    StoryFilter.Show => await api.GetShowStoriesAsync(50),
-                    StoryFilter.Jobs => await api.GetJobStoriesAsync(50),
-                    _ => await api.GetTopStoriesAsync(50)
+                    StoryFilter.New => await api.GetNewStoriesAsync(500),
+                    StoryFilter.Best => await api.GetBestStoriesAsync(500),
+                    StoryFilter.Ask => await api.GetAskStoriesAsync(500),
+                    StoryFilter.Show => await api.GetShowStoriesAsync(500),
+                    StoryFilter.Jobs => await api.GetJobStoriesAsync(500),
+                    _ => await api.GetTopStoriesAsync(500)
                 };
-                cache.SetStoryList(cacheKey, ids);
+                cache.SetStoryList(cacheKey, allIds);
             }
+
+            state.AllStoryIds = allIds;
+
+            // Load current page of items
+            var startIdx = state.CurrentPage * state.StoriesPerPage;
+            var pageIds = allIds.Skip(startIdx).Take(state.StoriesPerPage).ToList();
 
             // Load items with caching - parallel for speed
             var stories = new List<HNItem>();
-            var tasks = ids.Select(async id =>
+            var tasks = pageIds.Select(async id =>
             {
                 if (cache.TryGetItem(id, out var cachedItem) && cachedItem != null)
                 {
@@ -681,7 +725,8 @@ public static class HackerNewsDemo
             stories = results.Where(item => item != null).Cast<HNItem>().ToList();
 
             state.Stories = stories;
-            state.StatusMessage = $"Loaded {state.Stories.Count} stories";
+            var totalPages = (int)Math.Ceiling((double)state.AllStoryIds.Count / state.StoriesPerPage);
+            state.StatusMessage = $"Page {state.CurrentPage + 1}/{totalPages} ({state.Stories.Count} stories)";
             await Task.Delay(2000);
             state.StatusMessage = string.Empty;
         }
@@ -971,6 +1016,11 @@ public static class HackerNewsDemo
         public int ScrollOffset { get; set; } = 0;
         public bool Loading { get; set; } = false;
         public string StatusMessage { get; set; } = string.Empty;
+
+        // Pagination
+        public int CurrentPage { get; set; } = 0;
+        public int StoriesPerPage { get; set; } = 50;
+        public List<int> AllStoryIds { get; set; } = new();
 
         // Story detail
         public HNItem? CurrentStory { get; set; }
