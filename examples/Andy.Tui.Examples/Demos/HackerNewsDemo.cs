@@ -867,6 +867,7 @@ public static class HackerNewsDemo
     private static List<string> WrapText(string text, int maxWidth)
     {
         if (string.IsNullOrEmpty(text)) return new List<string>();
+        if (maxWidth <= 0) return new List<string> { text };
 
         var lines = new List<string>();
         var words = text.Split(' ');
@@ -874,8 +875,30 @@ public static class HackerNewsDemo
 
         foreach (var word in words)
         {
-            if (currentLine.Length + word.Length + 1 > maxWidth)
+            // If the word itself is longer than maxWidth, we need to break it
+            if (word.Length > maxWidth)
             {
+                // First, add the current line if it has content
+                if (!string.IsNullOrEmpty(currentLine))
+                {
+                    lines.Add(currentLine);
+                    currentLine = "";
+                }
+
+                // Break the long word into chunks of maxWidth
+                for (int i = 0; i < word.Length; i += maxWidth)
+                {
+                    var chunk = word.Substring(i, Math.Min(maxWidth, word.Length - i));
+                    lines.Add(chunk);
+                }
+                continue;
+            }
+
+            // Check if adding this word would exceed maxWidth
+            var testLine = currentLine.Length > 0 ? currentLine + " " + word : word;
+            if (testLine.Length > maxWidth)
+            {
+                // Current line is full, save it and start a new one
                 if (!string.IsNullOrEmpty(currentLine))
                 {
                     lines.Add(currentLine);
@@ -884,11 +907,12 @@ public static class HackerNewsDemo
             }
             else
             {
-                if (currentLine.Length > 0) currentLine += " ";
-                currentLine += word;
+                // Add word to current line
+                currentLine = testLine;
             }
         }
 
+        // Add the last line
         if (!string.IsNullOrEmpty(currentLine))
         {
             lines.Add(currentLine);
