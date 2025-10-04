@@ -193,4 +193,107 @@ public class WrappedTextCleanupTests
 
         return lines;
     }
+
+    [Fact]
+    public void DamageDetection_ShouldMarkCellsDirty_WhenBackgroundChanges()
+    {
+        // This test reproduces the actual bug in the compositor:
+        // When previous frame has text and current frame has background,
+        // damage detection should mark those cells as dirty
+
+        int width = 80;
+        int height = 10;
+
+        // Frame 1: Draw text "generative" at column 0
+        var b1 = new DisplayListBuilder();
+        b1.PushClip(new ClipPush(0, 0, width, height));
+        b1.DrawRect(new Rect(0, 0, width, height, new Rgb24(0, 0, 0))); // Black background
+        b1.DrawText(new TextRun(0, 0, "generative", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+        b1.Pop();
+
+        var comp = new TtyCompositor();
+        var grid1 = comp.Composite(b1.Build(), (width, height));
+
+        // Frame 2: Draw text "comment" at column 8 with background clear
+        var b2 = new DisplayListBuilder();
+        b2.PushClip(new ClipPush(0, 0, width, height));
+        b2.DrawRect(new Rect(0, 0, width, height, new Rgb24(0, 0, 0))); // Black background - should clear columns 0-7
+        b2.DrawText(new TextRun(8, 0, "comment", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+        b2.Pop();
+
+        var grid2 = comp.Composite(b2.Build(), (width, height));
+
+        // Get damage between frames
+        var damage = comp.Damage(grid1, grid2);
+
+        // Columns 0-7 should be marked as dirty because they changed from "generative" to background
+        bool column0Dirty = false;
+        foreach (var rect in damage)
+        {
+            if (rect.Y == 0 && rect.X <= 0 && rect.X + rect.Width > 0)
+            {
+                column0Dirty = true;
+                break;
+            }
+        }
+
+        Assert.True(column0Dirty,
+            "Column 0 should be marked as dirty when changing from text to background, but damage detection missed it");
+
+        // Also verify the actual grid has the right content
+        // Columns 0-7 should be blank (space with black background)
+        for (int x = 0; x < 8; x++)
+        {
+            Assert.True(
+                grid2[x, 0].Grapheme == " " || grid2[x, 0].Grapheme == null,
+                $"Column {x} should be blank but has '{grid2[x, 0].Grapheme}'"
+            );
+        }
+
+        // Column 8 onwards should have "comment"
+        Assert.Equal("c", grid2[8, 0].Grapheme);
+    }
+
+    [Fact]
+    public void FrameScheduler_ShouldProperlyUpdate_WhenTextMovesPosition()
+    {
+        // This test simulates exactly what FrameScheduler does:
+        // Store previous grid, render new grid, compare, check damage
+
+        int width = 80;
+        int height = 10;
+        var comp = new TtyCompositor();
+        CellGrid? previousGrid = null;
+
+        // Frame 1: Text at position 0
+        var b1 = new DisplayListBuilder();
+        b1.PushClip(new ClipPush(0, 0, width, height));
+        b1.DrawRect(new Rect(0, 0, width, height, new Rgb24(0, 0, 0)));
+        b1.DrawText(new TextRun(0, 0, "generative AI is amazing and will change everything", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+        b1.Pop();
+
+        var grid1 = comp.Composite(b1.Build(), (width, height));
+        previousGrid = grid1; // Simulate FrameScheduler._previousGrid = cells
+
+        // Frame 2: Background clear + text at position 8 (simulating scrolled comment)
+        var b2 = new DisplayListBuilder();
+        b2.PushClip(new ClipPush(0, 0, width, height));
+        b2.DrawRect(new Rect(0, 0, width, height, new Rgb24(0, 0, 0)));  // Background
+        b2.DrawText(new TextRun(8, 0, "This is different text", new Rgb24(200, 200, 200), null, CellAttrFlags.None));
+        b2.Pop();
+
+        var grid2 = comp.Composite(b2.Build(), (width, height));
+
+        // Compare like FrameScheduler does
+        var damage = comp.Damage(previousGrid, grid2);
+
+        // Verify damage was detected at column 0
+        bool hasColumn0Damage = damage.Any(r => r.Y == 0 && r.X == 0);
+        Assert.True(hasColumn0Damage, "Column 0 should be in damage rects");
+
+        // Verify grid2 is correct
+        Assert.True(grid2[0, 0].Grapheme == " ", $"Column 0 should be blank but is '{grid2[0, 0].Grapheme}'");
+        Assert.True(grid2[7, 0].Grapheme == " ", $"Column 7 should be blank but is '{grid2[7, 0].Grapheme}'");
+        Assert.Equal("T", grid2[8, 0].Grapheme);
+    }
 }
