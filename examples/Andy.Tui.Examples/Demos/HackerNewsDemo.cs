@@ -179,6 +179,8 @@ public static class HackerNewsDemo
         }
         finally
         {
+            // Save cache to disk before exiting
+            cache.SaveToDisk();
             Console.Write("\u001b[?7h\u001b[?25h\u001b[?1049l");
         }
     }
@@ -688,34 +690,77 @@ public static class HackerNewsDemo
 
         try
         {
-            // Load comment items with caching - parallel for speed
-            var tasks = state.CurrentStory.Kids.Take(30).Select(async id =>
-            {
-                if (cache.TryGetItem(id, out var cachedItem) && cachedItem != null)
-                {
-                    return cachedItem;
-                }
-                else
-                {
-                    var item = await api.GetItemAsync(id);
-                    if (item != null)
-                    {
-                        cache.SetItem(id, item);
-                    }
-                    return item;
-                }
-            }).ToList();
-
-            var results = await Task.WhenAll(tasks);
-            var commentItems = results.Where(item => item != null).Cast<HNItem>().ToList();
-
+            var allCommentIds = state.CurrentStory.Kids.Take(100).ToList();
             var flatComments = new List<CommentWithDepth>();
-            foreach (var item in commentItems)
+
+            // Load in batches for progressive display
+            const int batchSize = 10;
+            for (int i = 0; i < allCommentIds.Count; i += batchSize)
             {
-                await FlattenComments(api, cache, item, 0, flatComments);
+                var batch = allCommentIds.Skip(i).Take(batchSize);
+
+                // Load this batch in parallel
+                var tasks = batch.Select(async id =>
+                {
+                    if (cache.TryGetItem(id, out var cachedItem) && cachedItem != null)
+                    {
+                        return cachedItem;
+                    }
+                    else
+                    {
+                        var item = await api.GetItemAsync(id);
+                        if (item != null)
+                        {
+                            cache.SetItem(id, item);
+                        }
+                        return item;
+                    }
+                }).ToList();
+
+                var results = await Task.WhenAll(tasks);
+                var commentItems = results.Where(item => item != null).Cast<HNItem>().ToList();
+
+                // Flatten this batch (with limited depth for first pass)
+                foreach (var item in commentItems)
+                {
+                    await FlattenComments(api, cache, item, 0, flatComments, maxDepth: 2);
+                }
+
+                // Update UI immediately with this batch
+                state.Comments = new List<CommentWithDepth>(flatComments);
+
+                // Mark loading as false after first batch so UI shows content
+                if (i == 0)
+                {
+                    state.LoadingComments = false;
+                }
             }
 
-            state.Comments = flatComments;
+            // Now load deeper comments in background
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var existingIds = new HashSet<int>(flatComments.Select(c => c.Comment.Id));
+                    var deepComments = new List<CommentWithDepth>();
+
+                    foreach (var comment in flatComments.ToList())
+                    {
+                        if (comment.Comment.Kids != null && comment.Depth < 2)
+                        {
+                            await LoadDeeperComments(api, cache, comment.Comment, comment.Depth, deepComments, existingIds);
+                        }
+                    }
+
+                    // Merge deep comments (only new ones)
+                    if (deepComments.Count > 0)
+                    {
+                        var allComments = flatComments.Concat(deepComments).ToList();
+                        state.Comments = allComments;
+                    }
+                }
+                catch { /* Silently fail background loading */ }
+            });
         }
         catch (Exception ex)
         {
@@ -727,16 +772,53 @@ public static class HackerNewsDemo
         }
     }
 
-    private static async Task FlattenComments(HackerNewsApiClient api, HackerNewsCache cache, HNItem comment, int depth, List<CommentWithDepth> result)
+    private static async Task LoadDeeperComments(HackerNewsApiClient api, HackerNewsCache cache, HNItem comment, int depth, List<CommentWithDepth> result, HashSet<int> existingIds)
     {
-        if (depth > 5 || result.Count > 100) return; // Limit depth and total comments
+        if (comment.Kids == null || comment.Kids.Count == 0 || depth >= 10)
+            return;
+
+        var tasks = comment.Kids.Take(50).Select(async id =>
+        {
+            if (cache.TryGetItem(id, out var cachedItem) && cachedItem != null)
+            {
+                return cachedItem;
+            }
+            else
+            {
+                var item = await api.GetItemAsync(id);
+                if (item != null)
+                {
+                    cache.SetItem(id, item);
+                }
+                return item;
+            }
+        }).ToList();
+
+        var results = await Task.WhenAll(tasks);
+        var childItems = results.Where(item => item != null).Cast<HNItem>().ToList();
+
+        foreach (var child in childItems)
+        {
+            // Only add if not already in the list
+            if (!existingIds.Contains(child.Id))
+            {
+                result.Add(new CommentWithDepth(child, depth + 1));
+                existingIds.Add(child.Id);
+                await LoadDeeperComments(api, cache, child, depth + 1, result, existingIds);
+            }
+        }
+    }
+
+    private static async Task FlattenComments(HackerNewsApiClient api, HackerNewsCache cache, HNItem comment, int depth, List<CommentWithDepth> result, int maxDepth = 10)
+    {
+        if (depth > maxDepth || result.Count > 1000) return; // Limit depth and total comments
 
         result.Add(new CommentWithDepth(comment, depth));
 
-        if (comment.Kids != null && comment.Kids.Count > 0)
+        if (comment.Kids != null && comment.Kids.Count > 0 && depth < maxDepth)
         {
             // Load child items with caching - parallel for speed
-            var tasks = comment.Kids.Take(10).Select(async id =>
+            var tasks = comment.Kids.Take(50).Select(async id =>
             {
                 if (cache.TryGetItem(id, out var cachedItem) && cachedItem != null)
                 {
@@ -758,7 +840,7 @@ public static class HackerNewsDemo
 
             foreach (var child in childItems)
             {
-                await FlattenComments(api, cache, child, depth + 1, result);
+                await FlattenComments(api, cache, child, depth + 1, result, maxDepth);
             }
         }
     }

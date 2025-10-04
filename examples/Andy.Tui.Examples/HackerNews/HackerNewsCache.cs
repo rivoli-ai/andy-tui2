@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Andy.Tui.Examples.HackerNews;
 
@@ -12,6 +13,16 @@ public sealed class HackerNewsCache
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(15);
     private const long MaxCacheSizeBytes = 20 * 1024 * 1024; // 20MB
     private long _currentCacheSize = 0;
+    private readonly string _cacheFilePath;
+
+    public HackerNewsCache()
+    {
+        // Use temp directory for cache file
+        var cacheDir = Path.Combine(Path.GetTempPath(), "andy-tui-hn-cache");
+        Directory.CreateDirectory(cacheDir);
+        _cacheFilePath = Path.Combine(cacheDir, "cache.json");
+        LoadFromDisk();
+    }
 
     public bool TryGetStoryList(string key, out List<int>? value)
     {
@@ -152,6 +163,94 @@ public sealed class HackerNewsCache
         }
     }
 
+    public void SaveToDisk()
+    {
+        try
+        {
+            lock (_lruLock)
+            {
+                var data = new PersistedCache
+                {
+                    StoryLists = _storyListCache.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new PersistedCacheEntry<List<int>>
+                        {
+                            Value = kvp.Value.Value,
+                            Timestamp = kvp.Value.Timestamp
+                        }),
+                    Items = _itemCache.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new PersistedCacheEntry<HNItem>
+                        {
+                            Value = kvp.Value.Value,
+                            Timestamp = kvp.Value.Timestamp
+                        })
+                };
+
+                var json = JsonSerializer.Serialize(data, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                });
+
+                File.WriteAllText(_cacheFilePath, json);
+            }
+        }
+        catch
+        {
+            // Silently fail - cache persistence is not critical
+        }
+    }
+
+    private void LoadFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(_cacheFilePath))
+                return;
+
+            var json = File.ReadAllText(_cacheFilePath);
+            var data = JsonSerializer.Deserialize<PersistedCache>(json);
+
+            if (data == null)
+                return;
+
+            lock (_lruLock)
+            {
+                // Load story lists
+                foreach (var kvp in data.StoryLists ?? new())
+                {
+                    if (DateTime.UtcNow - kvp.Value.Timestamp < _cacheExpiration)
+                    {
+                        _storyListCache[kvp.Key] = new CacheEntry<List<int>>(kvp.Value.Value, kvp.Value.Timestamp);
+                    }
+                }
+
+                // Load items
+                foreach (var kvp in data.Items ?? new())
+                {
+                    if (DateTime.UtcNow - kvp.Value.Timestamp < _cacheExpiration)
+                    {
+                        var lruNode = _lruList.AddLast(kvp.Key);
+                        _itemCache[kvp.Key] = new CacheEntry<HNItem>(kvp.Value.Value, kvp.Value.Timestamp, lruNode);
+                        _currentCacheSize += EstimateSize(kvp.Value.Value);
+                    }
+                }
+
+                // Enforce size limit after loading
+                while (_currentCacheSize > MaxCacheSizeBytes && _lruList.Count > 0)
+                {
+                    var oldestId = _lruList.First!.Value;
+                    RemoveItemInternal(oldestId);
+                }
+            }
+        }
+        catch
+        {
+            // Silently fail - start with empty cache if load fails
+        }
+    }
+
     private sealed class CacheEntry<T>
     {
         public T Value { get; }
@@ -164,5 +263,18 @@ public sealed class HackerNewsCache
             Timestamp = timestamp;
             LruNode = lruNode;
         }
+    }
+
+    // Serialization classes for disk persistence
+    private sealed class PersistedCache
+    {
+        public Dictionary<string, PersistedCacheEntry<List<int>>> StoryLists { get; set; } = new();
+        public Dictionary<int, PersistedCacheEntry<HNItem>> Items { get; set; } = new();
+    }
+
+    private sealed class PersistedCacheEntry<T>
+    {
+        public T Value { get; set; } = default!;
+        public DateTime Timestamp { get; set; }
     }
 }

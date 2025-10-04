@@ -485,6 +485,9 @@ class Program
     static string? ReadMenuSelectionInteractive(string[] items)
     {
         int index = 0;
+        string typedNumber = "";
+        int maxDigits = items.Length < 100 ? 2 : 3;
+
         while (true)
         {
             // Render selection cursor line
@@ -493,13 +496,31 @@ class Program
             int col1Width = 45;
             int col2X = col1Width + 2;
             int itemsPerColumn = (items.Length + 1) / 2;
+            int col3X = Console.WindowWidth - 25; // Third column for large number display
+
+            // Find matching items based on typed number
+            var matchingIndices = new List<int>();
+            if (!string.IsNullOrEmpty(typedNumber))
+            {
+                for (int i = 0; i < items.Length; i++)
+                {
+                    var itemNumber = (i + 1).ToString();
+                    if (itemNumber.StartsWith(typedNumber))
+                    {
+                        matchingIndices.Add(i);
+                    }
+                }
+            }
 
             // Clear content area
             b.PushClip(new ClipPush(0, 0, Console.WindowWidth, Console.WindowHeight));
             b.DrawRect(new Rect(0, 0, Console.WindowWidth, Console.WindowHeight, new Rgb24(0, 0, 0)));
 
             // Header
-            b.DrawText(new TextRun(2, 1, "Andy.Tui Examples — Type number then Enter (ESC/Q to quit)", new Rgb24(200, 200, 50), null, CellAttrFlags.Bold));
+            var headerText = string.IsNullOrEmpty(typedNumber)
+                ? "Andy.Tui Examples — Type number then Enter (ESC/Q to quit)"
+                : $"Andy.Tui Examples — Type number: {typedNumber}_ (ESC to clear)";
+            b.DrawText(new TextRun(2, 1, headerText, new Rgb24(200, 200, 50), null, CellAttrFlags.Bold));
 
             // Two-column layout
             for (int i = 0; i < items.Length; i++)
@@ -510,23 +531,108 @@ class Program
                 int itemY = yStart + itemRow;
 
                 bool sel = i == index;
-                var fg = sel ? new Rgb24(0, 0, 0) : new Rgb24(220, 220, 220);
+                bool matches = matchingIndices.Contains(i);
+
+                var fg = sel ? new Rgb24(0, 0, 0) : (matches ? new Rgb24(100, 255, 100) : new Rgb24(220, 220, 220));
                 var bg = sel ? new Rgb24(200, 200, 80) : new Rgb24(0, 0, 0);
 
                 int bgWidth = itemCol == 0 ? col1Width - 2 : Console.WindowWidth - col2X - 2;
                 b.DrawRect(new Rect(x, itemY, bgWidth, 1, bg));
-                b.DrawText(new TextRun(x, itemY, items[i], fg, null, sel ? CellAttrFlags.Bold : CellAttrFlags.None));
+
+                // Add marker for matching items
+                var itemText = items[i];
+                if (matches && !sel)
+                {
+                    itemText = "→ " + itemText;
+                }
+
+                b.DrawText(new TextRun(x, itemY, itemText, fg, null, sel ? CellAttrFlags.Bold : CellAttrFlags.None));
+            }
+
+            // Third column: Large number display
+            if (!string.IsNullOrEmpty(typedNumber) && col3X > col2X + 45)
+            {
+                DrawLargeNumber(b, typedNumber, col3X, yStart + 2);
+
+                // Show matching count
+                var matchInfo = $"Matches: {matchingIndices.Count}";
+                b.DrawText(new TextRun(col3X, yStart + 10, matchInfo, new Rgb24(150, 150, 150), null, CellAttrFlags.None));
             }
 
             // Footer
-            var footer = "↑↓ navigate in column | ←→ switch columns | Enter select | ESC quit";
+            var footer = "Type number or ↑↓←→ navigate | Enter select | ESC quit/clear";
             b.DrawText(new TextRun(2, yStart + itemsPerColumn + 1, footer, new Rgb24(160, 160, 160), null, CellAttrFlags.None));
 
             b.Pop();
             RenderAsync(b, (Console.WindowWidth, Console.WindowHeight), CapabilityDetector.DetectFromEnvironment(), showHud: true).GetAwaiter().GetResult();
 
             var k = Console.ReadKey(true);
-            if (k.Key == ConsoleKey.Escape || k.Key == ConsoleKey.Q) return null;
+
+            // Handle ESC
+            if (k.Key == ConsoleKey.Escape)
+            {
+                if (!string.IsNullOrEmpty(typedNumber))
+                {
+                    // Clear typed number
+                    typedNumber = "";
+                    continue;
+                }
+                else
+                {
+                    // Quit
+                    return null;
+                }
+            }
+            else if (k.Key == ConsoleKey.Q && string.IsNullOrEmpty(typedNumber))
+            {
+                return null;
+            }
+
+            // Handle number typing
+            if (char.IsDigit(k.KeyChar))
+            {
+                if (typedNumber.Length < maxDigits)
+                {
+                    typedNumber += k.KeyChar;
+
+                    // Auto-select if exact match
+                    var exactMatch = int.TryParse(typedNumber, out var num) && num >= 1 && num <= items.Length;
+                    if (exactMatch && typedNumber.Length == maxDigits)
+                    {
+                        return num.ToString();
+                    }
+
+                    // Update selection to first matching item
+                    if (matchingIndices.Count > 0)
+                    {
+                        index = matchingIndices[0];
+                    }
+                }
+                continue;
+            }
+            else if (k.Key == ConsoleKey.Backspace && !string.IsNullOrEmpty(typedNumber))
+            {
+                typedNumber = typedNumber[..^1];
+                continue;
+            }
+            else if (k.Key == ConsoleKey.Enter || k.Key == ConsoleKey.Spacebar)
+            {
+                // If we have a typed number with exact match, use it
+                if (!string.IsNullOrEmpty(typedNumber))
+                {
+                    if (int.TryParse(typedNumber, out var num) && num >= 1 && num <= items.Length)
+                    {
+                        return num.ToString();
+                    }
+                    else if (matchingIndices.Count == 1)
+                    {
+                        return (matchingIndices[0] + 1).ToString();
+                    }
+                }
+
+                // Otherwise use current cursor selection
+                return (index + 1).ToString();
+            }
 
             int col = index / itemsPerColumn;
             int row = index % itemsPerColumn;
@@ -570,6 +676,37 @@ class Program
             {
                 // Map index to menu number (1-based string)
                 return (index + 1).ToString();
+            }
+        }
+    }
+
+    static void DrawLargeNumber(DisplayListBuilder b, string number, int x, int y)
+    {
+        // Large ASCII art for digits 0-9
+        var digitPatterns = new Dictionary<char, string[]>
+        {
+            ['0'] = new[] { "███", "█ █", "█ █", "█ █", "███" },
+            ['1'] = new[] { " █ ", "██ ", " █ ", " █ ", "███" },
+            ['2'] = new[] { "███", "  █", "███", "█  ", "███" },
+            ['3'] = new[] { "███", "  █", "███", "  █", "███" },
+            ['4'] = new[] { "█ █", "█ █", "███", "  █", "  █" },
+            ['5'] = new[] { "███", "█  ", "███", "  █", "███" },
+            ['6'] = new[] { "███", "█  ", "███", "█ █", "███" },
+            ['7'] = new[] { "███", "  █", "  █", "  █", "  █" },
+            ['8'] = new[] { "███", "█ █", "███", "█ █", "███" },
+            ['9'] = new[] { "███", "█ █", "███", "  █", "███" }
+        };
+
+        int currentX = x;
+        foreach (var digit in number)
+        {
+            if (digitPatterns.TryGetValue(digit, out var pattern))
+            {
+                for (int row = 0; row < pattern.Length; row++)
+                {
+                    b.DrawText(new TextRun(currentX, y + row, pattern[row], new Rgb24(100, 200, 255), null, CellAttrFlags.None));
+                }
+                currentX += 4; // Space between digits
             }
         }
     }
