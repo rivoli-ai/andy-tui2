@@ -27,6 +27,7 @@ public static class HackerNewsDemo
     public static async Task Run((int Width, int Height) viewport, TerminalCapabilities caps)
     {
         var scheduler = new Andy.Tui.Core.FrameScheduler();
+        scheduler.SetForceFullClear(true); // Force full screen clear each frame to prevent artifacts
         var hud = new Andy.Tui.Observability.HudOverlay { Enabled = false };
         scheduler.SetMetricsSink(hud);
         var pty = new StdoutPty();
