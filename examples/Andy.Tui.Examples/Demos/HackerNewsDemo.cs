@@ -385,6 +385,12 @@ public static class HackerNewsDemo
             if (y >= viewport.Height)
                 break;
 
+            // Clear the left margin before drawing hierarchy bars and header
+            if (baseIndent > 0)
+            {
+                wb.DrawRect(new DL.Rect(0, y, baseIndent, 1, HN_DARK_BG));
+            }
+
             if (selected)
             {
                 // Draw selection background starting at baseIndent to avoid polluting column 0
@@ -413,20 +419,23 @@ public static class HackerNewsDemo
                 var wrappedText = WrapText(text, maxWidth);
 
                 // Show as many lines as we have space for
-                int maxLines = Math.Min(wrappedText.Count, viewport.Height - y);
-                foreach (var line in wrappedText.Take(maxLines))
+                foreach (var line in wrappedText)
                 {
                     if (y >= viewport.Height)
                         break;
 
-                            // Draw hierarchy bars for text lines too
+                    // Clear the left margin before drawing wrapped text lines
+                    wb.DrawRect(new DL.Rect(0, y, Math.Max(1, textIndent), 1, HN_DARK_BG));
+
+                    // Draw hierarchy bars for text lines too
                     for (int d = 0; d < comment.Depth; d++)
                     {
                         var barColor = new DL.Rgb24(60, 60, 60);
                         wb.DrawText(new DL.TextRun(2 + d * 2, y, "│", barColor, HN_DARK_BG, DL.CellAttrFlags.None));
                     }
 
-                    wb.DrawText(new DL.TextRun(textIndent, y++, line, HN_BEIGE, HN_DARK_BG, DL.CellAttrFlags.None));
+                    wb.DrawText(new DL.TextRun(textIndent, y, line, HN_BEIGE, HN_DARK_BG, DL.CellAttrFlags.None));
+                    y++;
                 }
             }
 
@@ -868,6 +877,8 @@ public static class HackerNewsDemo
     {
         var result = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]*>", "");
         result = System.Web.HttpUtility.HtmlDecode(result);
+        // Replace newlines with spaces to prevent terminal cursor issues
+        result = result.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
         return result;
     }
 
