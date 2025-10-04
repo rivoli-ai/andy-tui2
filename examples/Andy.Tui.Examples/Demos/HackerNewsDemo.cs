@@ -370,6 +370,9 @@ public static class HackerNewsDemo
         int visibleHeight = viewport.Height - startY;
         int startIdx = Math.Max(0, state.CommentScrollOffset);
 
+        // Clear the comments area to prevent scrolling artifacts
+        wb.DrawRect(new DL.Rect(0, startY, viewport.Width, visibleHeight, HN_DARK_BG));
+
         for (int i = startIdx; i < state.Comments.Count && y < viewport.Height; i++)
         {
             var comment = state.Comments[i];
