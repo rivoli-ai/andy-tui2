@@ -296,4 +296,65 @@ public class WrappedTextCleanupTests
         Assert.True(grid2[7, 0].Grapheme == " ", $"Column 7 should be blank but is '{grid2[7, 0].Grapheme}'");
         Assert.Equal("T", grid2[8, 0].Grapheme);
     }
+
+    [Fact]
+    public void ActualBugReproduction_ArtifactsAtLeftMargin()
+    {
+        // Reproduce the EXACT bug: artifacts like "If y", "At whi" at column 0
+        // This happens when text from a previous frame isn't properly cleared
+
+        int width = 80;
+        int height = 25;
+        var comp = new TtyCompositor();
+
+        // Frame 1: Draw a long line that fills most of the width
+        var b1 = new DisplayListBuilder();
+        b1.PushClip(new ClipPush(0, 0, width, height));
+        b1.DrawRect(new Rect(0, 0, width, height, new Rgb24(30, 30, 30))); // Dark bg
+        // Simulate a wrapped comment line - text starts at column 4 (after hierarchy bars)
+        b1.DrawText(new TextRun(4, 5, "If you look at year over year chip improvements it's clear that", new Rgb24(246, 246, 239), new Rgb24(30, 30, 30), CellAttrFlags.None));
+        b1.Pop();
+
+        var grid1 = comp.Composite(b1.Build(), (width, height));
+
+        // Frame 2: Scroll - same row now has different content
+        var b2 = new DisplayListBuilder();
+        b2.PushClip(new ClipPush(0, 0, width, height));
+        b2.DrawRect(new Rect(0, 0, width, height, new Rgb24(30, 30, 30))); // Dark bg - should clear everything
+        // Draw hierarchy bars
+        b2.DrawText(new TextRun(2, 5, "│", new Rgb24(60, 60, 60), new Rgb24(30, 30, 30), CellAttrFlags.None));
+        b2.DrawText(new TextRun(4, 5, "│", new Rgb24(60, 60, 60), new Rgb24(30, 30, 30), CellAttrFlags.None));
+        // Now text at column 10 (different position)
+        b2.DrawText(new TextRun(10, 5, "Maybe it works", new Rgb24(246, 246, 239), new Rgb24(30, 30, 30), CellAttrFlags.None));
+        b2.Pop();
+
+        var grid2 = comp.Composite(b2.Build(), (width, height));
+
+        // Check that columns 0-1 are cleared (should be space with dark bg)
+        for (int x = 0; x < 2; x++)
+        {
+            var cell = grid2[x, 5];
+            Assert.True(
+                cell.Grapheme == " ",
+                $"Column {x} should be cleared but has '{cell.Grapheme}'"
+            );
+        }
+
+        // Check that columns 6-9 are cleared (between bars and text)
+        for (int x = 6; x < 10; x++)
+        {
+            var cell = grid2[x, 5];
+            Assert.True(
+                cell.Grapheme == " ",
+                $"Column {x} should be cleared but has '{cell.Grapheme}'"
+            );
+        }
+
+        // The bars should be at columns 2 and 4
+        Assert.Equal("│", grid2[2, 5].Grapheme);
+        Assert.Equal("│", grid2[4, 5].Grapheme);
+
+        // Text should start at column 10
+        Assert.Equal("M", grid2[10, 5].Grapheme);
+    }
 }
