@@ -400,7 +400,7 @@ public static class HackerNewsDemo
             var timeAgo = GetTimeAgo(comment.CreatedAt);
             var depthIndicator = comment.Depth > 0 ? "└ " : "";
             var header = $"{depthIndicator}{by} {timeAgo}";
-            wb.DrawText(new DL.TextRun(baseIndent, y++, header, HN_ORANGE, null, selected ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None));
+            wb.DrawText(new DL.TextRun(baseIndent, y++, header, HN_ORANGE, HN_DARK_BG, selected ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None));
 
             if (!string.IsNullOrEmpty(comment.Text) && y < viewport.Height)
             {
@@ -420,9 +420,9 @@ public static class HackerNewsDemo
                     for (int d = 0; d < comment.Depth; d++)
                     {
                         var barColor = new DL.Rgb24(60, 60, 60);
-                        wb.DrawText(new DL.TextRun(2 + d * 2, y, "│", barColor, null, DL.CellAttrFlags.None));
+                        wb.DrawText(new DL.TextRun(2 + d * 2, y, "│", barColor, HN_DARK_BG, DL.CellAttrFlags.None));
                     }
-                    wb.DrawText(new DL.TextRun(textIndent, y++, line, HN_BEIGE, null, DL.CellAttrFlags.None));
+                    wb.DrawText(new DL.TextRun(textIndent, y++, line, HN_BEIGE, HN_DARK_BG, DL.CellAttrFlags.None));
                 }
             }
 
