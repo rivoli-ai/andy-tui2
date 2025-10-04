@@ -241,13 +241,24 @@ class Program
                 "60) Title + Badge",
                 "61) Notifications / Bell",
                 "62) Resize Handle",
-                "63) FIGlet Viewer"
+                "63) FIGlet Viewer",
+                "64) Hacker News Reader"
             };
-            foreach (var line in items)
+
+            // Two-column layout
+            int col1Width = 45;
+            int col2X = col1Width + 2;
+            int itemsPerColumn = (items.Length + 1) / 2;
+
+            for (int i = 0; i < items.Length; i++)
             {
-                b.DrawText(new TextRun(4, y++, line, new Rgb24(220, 220, 220), null, CellAttrFlags.None));
+                int col = i / itemsPerColumn;
+                int row = i % itemsPerColumn;
+                int x = col == 0 ? 4 : col2X;
+                int itemY = y + row;
+                b.DrawText(new TextRun(x, itemY, items[i], new Rgb24(220, 220, 220), null, CellAttrFlags.None));
             }
-            b.DrawText(new TextRun(2, y + 1, "Press ESC/Q in any demo to return here. ESC/Q here quits.", new Rgb24(160, 160, 160), null, CellAttrFlags.None));
+            b.DrawText(new TextRun(2, y + itemsPerColumn + 1, "Press ESC/Q in any demo to return here. ESC/Q here quits.", new Rgb24(160, 160, 160), null, CellAttrFlags.None));
             await RenderAsync(b, viewport, caps, showHud: true);
 
             var sel = ReadMenuSelectionInteractive(items);
@@ -318,6 +329,7 @@ class Program
                 case "61": await BellDemo.Run(viewport, caps); break;
                 case "62": await ResizeHandleDemo.Run(viewport, caps); break;
                 case "63": await FigletViewerDemo.Run(viewport, caps); break;
+                case "64": await HackerNewsDemo.Run(viewport, caps); break;
             }
         }
     }
@@ -478,28 +490,80 @@ class Program
             // Render selection cursor line
             var b = new DisplayListBuilder();
             int yStart = 3;
-            int contentX = 2;
-            int contentW = Math.Max(0, Console.WindowWidth - 4);
+            int col1Width = 45;
+            int col2X = col1Width + 2;
+            int itemsPerColumn = (items.Length + 1) / 2;
+
             // Clear content area
             b.PushClip(new ClipPush(0, 0, Console.WindowWidth, Console.WindowHeight));
             b.DrawRect(new Rect(0, 0, Console.WindowWidth, Console.WindowHeight, new Rgb24(0, 0, 0)));
+
+            // Header
+            b.DrawText(new TextRun(2, 1, "Andy.Tui Examples — Type number then Enter (ESC/Q to quit)", new Rgb24(200, 200, 50), null, CellAttrFlags.Bold));
+
+            // Two-column layout
             for (int i = 0; i < items.Length; i++)
             {
+                int itemCol = i / itemsPerColumn;
+                int itemRow = i % itemsPerColumn;
+                int x = itemCol == 0 ? 4 : col2X;
+                int itemY = yStart + itemRow;
+
                 bool sel = i == index;
                 var fg = sel ? new Rgb24(0, 0, 0) : new Rgb24(220, 220, 220);
                 var bg = sel ? new Rgb24(200, 200, 80) : new Rgb24(0, 0, 0);
-                b.DrawRect(new Rect(contentX, yStart + i, contentW, 1, bg));
-                b.DrawText(new TextRun(4, yStart + i, items[i], fg, null, sel ? CellAttrFlags.Bold : CellAttrFlags.None));
+
+                int bgWidth = itemCol == 0 ? col1Width - 2 : Console.WindowWidth - col2X - 2;
+                b.DrawRect(new Rect(x, itemY, bgWidth, 1, bg));
+                b.DrawText(new TextRun(x, itemY, items[i], fg, null, sel ? CellAttrFlags.Bold : CellAttrFlags.None));
             }
+
+            // Footer
+            var footer = "↑↓ navigate in column | ←→ switch columns | Enter select | ESC quit";
+            b.DrawText(new TextRun(2, yStart + itemsPerColumn + 1, footer, new Rgb24(160, 160, 160), null, CellAttrFlags.None));
+
             b.Pop();
             RenderAsync(b, (Console.WindowWidth, Console.WindowHeight), CapabilityDetector.DetectFromEnvironment(), showHud: true).GetAwaiter().GetResult();
 
             var k = Console.ReadKey(true);
             if (k.Key == ConsoleKey.Escape || k.Key == ConsoleKey.Q) return null;
-            if (k.Key == ConsoleKey.DownArrow) index = (index + 1) % items.Length;
-            else if (k.Key == ConsoleKey.UpArrow) index = (index - 1 + items.Length) % items.Length;
-            else if (k.Key == ConsoleKey.PageDown) index = Math.Min(items.Length - 1, index + Math.Max(1, Console.WindowHeight - 6));
-            else if (k.Key == ConsoleKey.PageUp) index = Math.Max(0, index - Math.Max(1, Console.WindowHeight - 6));
+
+            int col = index / itemsPerColumn;
+            int row = index % itemsPerColumn;
+
+            if (k.Key == ConsoleKey.DownArrow)
+            {
+                // Move down in current column, or wrap to top of same column
+                row = (row + 1) % itemsPerColumn;
+                int newIndex = col * itemsPerColumn + row;
+                if (newIndex < items.Length) index = newIndex;
+            }
+            else if (k.Key == ConsoleKey.UpArrow)
+            {
+                // Move up in current column, or wrap to bottom of same column
+                row = (row - 1 + itemsPerColumn) % itemsPerColumn;
+                int newIndex = col * itemsPerColumn + row;
+                if (newIndex < items.Length) index = newIndex;
+            }
+            else if (k.Key == ConsoleKey.RightArrow)
+            {
+                // Move to next column
+                if (col == 0)
+                {
+                    int newIndex = itemsPerColumn + row;
+                    if (newIndex < items.Length) index = newIndex;
+                }
+            }
+            else if (k.Key == ConsoleKey.LeftArrow)
+            {
+                // Move to previous column
+                if (col == 1)
+                {
+                    index = row;
+                }
+            }
+            else if (k.Key == ConsoleKey.PageDown) index = Math.Min(items.Length - 1, index + 10);
+            else if (k.Key == ConsoleKey.PageUp) index = Math.Max(0, index - 10);
             else if (k.Key == ConsoleKey.Home) index = 0;
             else if (k.Key == ConsoleKey.End) index = items.Length - 1;
             else if (k.Key == ConsoleKey.Enter || k.Key == ConsoleKey.Spacebar)
