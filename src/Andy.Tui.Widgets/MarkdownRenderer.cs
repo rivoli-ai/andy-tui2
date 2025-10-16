@@ -38,8 +38,9 @@ namespace Andy.Tui.Widgets
             
             var lines = _md.Replace("\r\n","\n").Replace('\r','\n').Split('\n');
             var processedLines = ProcessUnderlinedHeaders(lines);
-            
-            foreach (var line in processedLines)
+            var spacedLines = AddParagraphSpacing(processedLines);
+
+            foreach (var line in spacedLines)
             {
                 if (cy >= y + h) break;
                 string text = line;
@@ -121,11 +122,11 @@ namespace Andy.Tui.Widgets
         private static List<string> ProcessUnderlinedHeaders(string[] lines)
         {
             var result = new List<string>();
-            
+
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
-                
+
                 // Check for underlined headers (next line is all === or ---)
                 if (i < lines.Length - 1)
                 {
@@ -148,11 +149,79 @@ namespace Andy.Tui.Widgets
                         }
                     }
                 }
-                
+
                 result.Add(line);
             }
-            
+
             return result;
+        }
+
+        private static List<string> AddParagraphSpacing(List<string> lines)
+        {
+            if (lines.Count == 0) return lines;
+
+            var result = new List<string>();
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                string current = lines[i];
+                string next = i < lines.Count - 1 ? lines[i + 1] : "";
+
+                result.Add(current);
+
+                // Don't add spacing if current or next line is already blank
+                if (string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(next))
+                    continue;
+
+                // Don't add spacing at the end
+                if (i == lines.Count - 1)
+                    continue;
+
+                var currentType = GetLineType(current);
+                var nextType = GetLineType(next);
+
+                // Add blank line when transitioning between different content types
+                bool needsSpacing = false;
+
+                // After a list item, before a heading or non-list text
+                if (currentType == LineType.List && nextType != LineType.List)
+                    needsSpacing = true;
+
+                // Before a heading (except after another heading or list)
+                if (nextType == LineType.Heading && currentType != LineType.Heading && currentType != LineType.List)
+                    needsSpacing = true;
+
+                // After a heading, before text or list
+                if (currentType == LineType.Heading && (nextType == LineType.Text || nextType == LineType.List))
+                    needsSpacing = false; // Don't add spacing after headings for now
+
+                if (needsSpacing)
+                    result.Add("");
+            }
+
+            return result;
+        }
+
+        private enum LineType { Heading, List, Text }
+
+        private static LineType GetLineType(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return LineType.Text;
+
+            var trimmed = line.TrimStart();
+
+            // Check for headings
+            if (trimmed.StartsWith("# ") || trimmed.StartsWith("## ") || trimmed.StartsWith("### "))
+                return LineType.Heading;
+
+            // Check for list items
+            if (trimmed.StartsWith("- ") || trimmed.StartsWith("* ") ||
+                trimmed.StartsWith("• ") || trimmed.StartsWith("★ ") ||
+                System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d+\.\s"))
+                return LineType.List;
+
+            return LineType.Text;
         }
     }
 }

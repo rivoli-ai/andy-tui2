@@ -19,7 +19,7 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <Deterministic>true</Deterministic>
-    <Version>0.1.0</Version>
+    <Version>2025.10.16-rc.1</Version>
     <Description>Andy.Tui v2 — Reactive TUI framework for .NET.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
