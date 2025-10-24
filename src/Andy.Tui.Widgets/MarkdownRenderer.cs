@@ -199,6 +199,12 @@ namespace Andy.Tui.Widgets
                     result.Add("");
             }
 
+            // Trim trailing blank lines
+            while (result.Count > 0 && string.IsNullOrWhiteSpace(result[^1]))
+            {
+                result.RemoveAt(result.Count - 1);
+            }
+
             return result;
         }
 
