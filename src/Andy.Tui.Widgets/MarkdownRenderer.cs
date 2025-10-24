@@ -40,6 +40,7 @@ namespace Andy.Tui.Widgets
             var processedLines = ProcessUnderlinedHeaders(lines);
             var spacedLines = AddParagraphSpacing(processedLines);
 
+            bool inCodeFence = false;
             foreach (var line in spacedLines)
             {
                 if (cy >= y + h) break;
@@ -48,7 +49,29 @@ namespace Andy.Tui.Widgets
                 var color = _fg;
                 int indent = 0;
                 string listMarker = "";
-                
+
+                // Check for code fence toggle
+                if (text.TrimStart().StartsWith("```"))
+                {
+                    inCodeFence = !inCodeFence;
+                    cy++; // Skip the ``` line itself
+                    continue;
+                }
+
+                // If inside code fence, render as plain code
+                if (inCodeFence)
+                {
+                    // Render code with monospace color and no markdown processing
+                    int codeCx = x + 2; // Small indent for code blocks
+                    foreach (char ch in text)
+                    {
+                        if (codeCx >= x + w) break;
+                        b.DrawText(new DL.TextRun(codeCx++, cy, ch.ToString(), _accent, _bg, DL.CellAttrFlags.None));
+                    }
+                    cy++;
+                    continue;
+                }
+
                 // Headers with distinct colors
                 if (text.StartsWith("### ")) { text = text.Substring(4); attrs |= DL.CellAttrFlags.Bold; color = _h3Color; }
                 else if (text.StartsWith("## ")) { text = text.Substring(3); attrs |= DL.CellAttrFlags.Bold; color = _h2Color; }
