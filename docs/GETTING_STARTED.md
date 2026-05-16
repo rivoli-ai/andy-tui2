@@ -119,7 +119,6 @@ container.AddChild(button);
 
 1. Explore the [Widget Catalog](WIDGETS.md) for available components
 2. Learn about [Architecture](ARCHITECTURE.md) for deeper understanding
-3. Check [API Reference](API_REFERENCE.md) for detailed documentation
 
 ## Important Notes
 

@@ -119,16 +119,22 @@ Implement `IBackend` to support new output targets (e.g., HTML, GUI frameworks).
 
 ```
 src/
+├── Andy.Tui/                # Umbrella meta-package
 ├── Andy.Tui.Core/           # Reactive system
+├── Andy.Tui.Compose/        # Composition / component tree
 ├── Andy.Tui.Style/          # CSS and styling
 ├── Andy.Tui.Layout/         # Layout engine
 ├── Andy.Tui.Text/           # Text processing
 ├── Andy.Tui.Widgets/        # Widget library
+├── Andy.Tui.CliWidgets/     # CLI-focused widgets
 ├── Andy.Tui.DisplayList/    # Rendering commands
 ├── Andy.Tui.Compositor/     # Layer composition
 ├── Andy.Tui.Backend.Terminal/ # Terminal output
+├── Andy.Tui.Backend.Web/    # Web output backend
+├── Andy.Tui.Backend.Native/ # Native output backend
 ├── Andy.Tui.Input/          # Input handling
 ├── Andy.Tui.Animations/     # Animation system
+├── Andy.Tui.Virtualization/ # List/table virtualization
 └── Andy.Tui.Observability/  # Logging/debugging
 ```
 
@@ -142,8 +148,6 @@ src/
 
 ## Future Roadmap
 
-- **Web Backend**: Render to HTML/Canvas
-- **Native Backend**: Direct GUI framework integration
 - **Accessibility**: Screen reader support
 - **Theming**: Comprehensive theme system
 - **Hot Reload**: Live UI updates during development

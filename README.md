@@ -34,6 +34,7 @@ A modern, reactive TUI framework for .NET 8 with declarative components, reactiv
 
 ## Repository structure
 - `src/` — library projects (packable)
+  - `Andy.Tui` (umbrella meta-package)
   - `Andy.Tui.Core`
   - `Andy.Tui.Compose`
   - `Andy.Tui.Style`
@@ -48,6 +49,7 @@ A modern, reactive TUI framework for .NET 8 with declarative components, reactiv
   - `Andy.Tui.Animations`
   - `Andy.Tui.Virtualization`
   - `Andy.Tui.Widgets`
+  - `Andy.Tui.CliWidgets`
   - `Andy.Tui.Observability`
 - `tests/` — xUnit test projects (non-packable)
 - `docs/` — design, roadmap, phases, testing, perf plans
@@ -101,7 +103,6 @@ dotnet nuget push ./nupkg/Andy.Tui.*.nupkg -k <NUGET_API_KEY> -s https://api.nug
 
 ## Development workflow
 - Format: `dotnet format`
-- Install pre-commit hooks: `./scripts/setup-git-hooks.sh` (macOS/Linux)
 - Tests must accompany code changes to `src/`
 - Run tests before committing significant changes: `dotnet test`
 - Generate coverage for meaningful refactors/features

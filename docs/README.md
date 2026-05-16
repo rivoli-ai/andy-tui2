@@ -60,10 +60,6 @@ var button = new Button { Label = "Increment" };
 button.Clicked += () => counter.Value++;
 ```
 
-## Contributing
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
-
 ## License
 
 Apache-2.0 License. See [LICENSE](../LICENSE) for details.
