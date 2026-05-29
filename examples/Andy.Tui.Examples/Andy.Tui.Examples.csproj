@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Style\Andy.Tui.Style.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />

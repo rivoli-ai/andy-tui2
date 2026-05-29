@@ -121,7 +121,7 @@ public class ButtonTests
         var b = new DL.DisplayListBuilder();
         btn.Render(new L.Rect(0, 0, 10, 1), baseDl, b);
         var dl = b.Build();
-        var hasActiveBg = dl.Ops.OfType<DL.Rect>().Any(r => r.Fill.R == 80 && r.Fill.G == 80 && r.Fill.B == 120);
+        var hasActiveBg = dl.Ops.OfType<DL.Rect>().Any(r => r.Fill is { R: 80, G: 80, B: 120 });
         Assert.True(hasActiveBg);
     }
 }

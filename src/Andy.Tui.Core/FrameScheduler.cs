@@ -68,7 +68,10 @@ public sealed class FrameScheduler
             bool sizeChanged = sizeChangedPre;
             if (sizeChanged || _forceFullClear)
             {
-                var clear = System.Text.Encoding.UTF8.GetBytes("\x1b[2J\x1b[H");
+                // Reset SGR to the terminal default *before* erasing, so the cleared
+                // region uses the terminal's own (possibly transparent) background
+                // rather than whatever background the previous frame left active.
+                var clear = System.Text.Encoding.UTF8.GetBytes("\x1b[0m\x1b[2J\x1b[H");
                 var body = bytes.ToArray();
                 var combined = new byte[clear.Length + body.Length];
                 System.Buffer.BlockCopy(clear, 0, combined, 0, clear.Length);

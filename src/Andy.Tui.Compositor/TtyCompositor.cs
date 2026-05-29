@@ -209,13 +209,17 @@ public sealed class TtyCompositor : ICompositor
         int y0 = Math.Max(clip.y, r.Y);
         int x1 = Math.Min(clip.x + clip.w, r.X + r.Width);
         int y1 = Math.Min(clip.y + clip.h, r.Y + r.Height);
+        // A transparent fill (null) paints nothing: it leaves the cells underneath
+        // (ultimately the terminal's default background) visible.
+        if (r.Fill is null) return;
+        var fill = r.Fill.Value;
         for (int y = y0; y < y1; y++)
         {
             for (int x = x0; x < x1; x++)
             {
                 // Use explicit space with both fg and bg set to fill color
                 // This ensures the cell is properly cleared
-                grid[x, y] = new Cell(" ", 1, r.Fill, r.Fill, CellAttrFlags.None);
+                grid[x, y] = new Cell(" ", 1, fill, fill, CellAttrFlags.None);
             }
         }
     }

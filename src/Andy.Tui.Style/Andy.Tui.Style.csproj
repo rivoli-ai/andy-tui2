@@ -6,4 +6,9 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Style colors compile down to render-layer colors (one-way; DisplayList has no deps). -->
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+  </ItemGroup>
+
 </Project>

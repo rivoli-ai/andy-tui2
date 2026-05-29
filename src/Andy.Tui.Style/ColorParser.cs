@@ -28,7 +28,10 @@ internal static class ColorParser
         ["brown"] = RgbaColor.FromRgb(165, 42, 42),
         ["pink"] = RgbaColor.FromRgb(255, 192, 203),
         ["aqua"] = RgbaColor.FromRgb(0, 255, 255),
-        ["fuchsia"] = RgbaColor.FromRgb(255, 0, 255)
+        ["fuchsia"] = RgbaColor.FromRgb(255, 0, 255),
+        // Transparent keywords map to alpha 0 (the terminal default at render time).
+        ["transparent"] = RgbaColor.Transparent,
+        ["none"] = RgbaColor.Transparent
     };
 
     public static bool TryParse(string value, out RgbaColor color)
