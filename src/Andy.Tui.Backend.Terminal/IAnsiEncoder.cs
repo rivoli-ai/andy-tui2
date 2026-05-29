@@ -17,9 +17,21 @@ public sealed class AnsiEncoder : IAnsiEncoder
     {
         var sb = new StringBuilder(1024);
         int currentRow = -1;
+        // Color tracking must distinguish three states:
+        //   - not yet emitted          (xEmitted == false)
+        //   - explicit RGB color        (xEmitted == true, currentX has value)
+        //   - transparent / default     (xEmitted == true, currentX == null)
+        // so we cannot overload "currentX == null" to mean "unset".
+        bool fgEmitted = false;
         Rgb24? currentFg = null;
+        bool bgEmitted = false;
         Rgb24? currentBg = null;
         CellAttrFlags currentAttrs = CellAttrFlags.None;
+        // The encoder is created fresh per frame and writes absolute SGR state, so
+        // it must not assume the terminal starts in any particular state: emit a
+        // single baseline reset for the first run so leftover attributes/colors
+        // from a previous frame cannot leak in. (No runs => no output.)
+        bool first = true;
 
         foreach (var run in runs)
         {
@@ -35,51 +47,74 @@ public sealed class AnsiEncoder : IAnsiEncoder
                 sb.Append($"\x1b[{run.Row + 1};{run.ColStart + 1}H");
             }
 
-            // Reset if attrs changed
-            if (run.Attrs != currentAttrs)
+            // Reset on the first run (establish a known baseline) or whenever the
+            // attributes change. ESC[0m clears attributes and resets colors to the
+            // terminal defaults, so force the colors to be re-emitted afterwards.
+            if (first || run.Attrs != currentAttrs)
             {
                 sb.Append("\x1b[0m");
                 currentAttrs = run.Attrs;
                 currentFg = null; currentBg = null;
+                fgEmitted = false; bgEmitted = false;
                 ApplyAttrs(sb, run.Attrs);
+                first = false;
             }
 
-            // Colors
-            if (currentFg is null || currentFg.Value != run.Fg)
+            // Foreground
+            if (!fgEmitted || currentFg != run.Fg)
             {
-                if (caps.TrueColor)
+                if (run.Fg is null)
                 {
-                    sb.Append($"\x1b[38;2;{run.Fg.R};{run.Fg.G};{run.Fg.B}m");
+                    // Transparent: reset to the terminal's default foreground.
+                    sb.Append("\x1b[39m");
+                }
+                else if (caps.TrueColor)
+                {
+                    var fg = run.Fg.Value;
+                    sb.Append($"\x1b[38;2;{fg.R};{fg.G};{fg.B}m");
                 }
                 else if (caps.Palette256)
                 {
-                    var idx = AnsiColorMapping.RgbTo256Color(run.Fg.R, run.Fg.G, run.Fg.B);
+                    var fg = run.Fg.Value;
+                    var idx = AnsiColorMapping.RgbTo256Color(fg.R, fg.G, fg.B);
                     sb.Append($"\x1b[38;5;{idx}m");
                 }
                 else
                 {
-                    var idx = AnsiColorMapping.RgbTo16Color(run.Fg.R, run.Fg.G, run.Fg.B);
+                    var fg = run.Fg.Value;
+                    var idx = AnsiColorMapping.RgbTo16Color(fg.R, fg.G, fg.B);
                     sb.Append(GetBasicColorCode(idx, isForeground: true));
                 }
                 currentFg = run.Fg;
+                fgEmitted = true;
             }
-            if (currentBg is null || currentBg.Value != run.Bg)
+            if (!bgEmitted || currentBg != run.Bg)
             {
-                if (caps.TrueColor)
+                if (run.Bg is null)
                 {
-                    sb.Append($"\x1b[48;2;{run.Bg.R};{run.Bg.G};{run.Bg.B}m");
+                    // Transparent: reset to the terminal's default background so the
+                    // terminal's own background (including transparency) shows through.
+                    sb.Append("\x1b[49m");
+                }
+                else if (caps.TrueColor)
+                {
+                    var bg = run.Bg.Value;
+                    sb.Append($"\x1b[48;2;{bg.R};{bg.G};{bg.B}m");
                 }
                 else if (caps.Palette256)
                 {
-                    var idx = AnsiColorMapping.RgbTo256Color(run.Bg.R, run.Bg.G, run.Bg.B);
+                    var bg = run.Bg.Value;
+                    var idx = AnsiColorMapping.RgbTo256Color(bg.R, bg.G, bg.B);
                     sb.Append($"\x1b[48;5;{idx}m");
                 }
                 else
                 {
-                    var idx = AnsiColorMapping.RgbTo16Color(run.Bg.R, run.Bg.G, run.Bg.B);
+                    var bg = run.Bg.Value;
+                    var idx = AnsiColorMapping.RgbTo16Color(bg.R, bg.G, bg.B);
                     sb.Append(GetBasicColorCode(idx, isForeground: false));
                 }
                 currentBg = run.Bg;
+                bgEmitted = true;
             }
 
             sb.Append(run.Text);

@@ -242,7 +242,8 @@ class Program
                 "61) Notifications / Bell",
                 "62) Resize Handle",
                 "63) FIGlet Viewer",
-                "64) Hacker News Reader"
+                "64) Hacker News Reader",
+                "65) Transparent Background"
             };
 
             // Two-column layout
@@ -330,6 +331,7 @@ class Program
                 case "62": await ResizeHandleDemo.Run(viewport, caps); break;
                 case "63": await FigletViewerDemo.Run(viewport, caps); break;
                 case "64": await HackerNewsDemo.Run(viewport, caps); break;
+                case "65": await TransparentBackgroundDemo.Run(viewport, caps); break;
             }
         }
     }

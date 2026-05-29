@@ -107,4 +107,27 @@ public class FrameSchedulerTests
         Assert.Contains("ROW1", pty.Last);
         Assert.Contains("ROW2", pty.Last);
     }
+
+    [Fact]
+    public async Task FullClear_Resets_Sgr_Before_Erase_For_Transparency()
+    {
+        var clock = new SimpleManualClock();
+        var sched = new FrameScheduler(clock, targetFps: 1000);
+        var caps = new TerminalCapabilities { TrueColor = true, Palette256 = true };
+        var pty = new BufferPty();
+
+        // First render always triggers the full-clear path (no previous grid).
+        // A fully transparent frame must clear with the terminal default background.
+        var b = new DisplayListBuilder();
+        b.PushClip(new ClipPush(0, 0, 8, 1));
+        b.DrawRect(new Rect(0, 0, 8, 1, Fill: null)); // transparent root
+        b.DrawText(new TextRun(0, 0, "hi", new Rgb24(255, 255, 255), Bg: null, CellAttrFlags.None));
+        b.Pop();
+        await sched.RenderOnceAsync(b.Build(), (8, 1), caps, pty, CancellationToken.None);
+
+        var esc = ((char)27).ToString();
+        Assert.Contains(esc + "[0m" + esc + "[2J", pty.Last); // SGR reset precedes erase
+        Assert.Contains(esc + "[49m", pty.Last);              // default background emitted
+        Assert.DoesNotContain(esc + "[48;", pty.Last);        // no explicit background painted
+    }
 }

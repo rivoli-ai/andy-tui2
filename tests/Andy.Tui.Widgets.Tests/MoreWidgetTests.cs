@@ -97,7 +97,7 @@ public class ProgressSliderListBoxTests
         pb.Render(new L.Rect(0, 0, 20, 1), baseDl, b);
         var dl = b.Build();
         // Find the fill rect by its fill color (60,140,220) and width 12 (approx)
-        var fill = dl.Ops.OfType<DL.Rect>().FirstOrDefault(r => r.Fill.R == 60 && r.Fill.G == 140 && r.Fill.B == 220);
+        var fill = dl.Ops.OfType<DL.Rect>().FirstOrDefault(r => r.Fill is { R: 60, G: 140, B: 220 });
         Assert.True(fill.Width == 12);
     }
 
