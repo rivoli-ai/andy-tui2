@@ -29,5 +29,11 @@ jobs:
           if [ "${RUN_PARITY}" = "true" ]; then
             dotnet test --no-build --verbosity normal
           else
-            dotnet test --no-build --verbosity normal --filter FullyQualifiedName!~Andy.Tui.Parity.Playwright
+            # Run every test project except the Playwright parity suite. A
+            # solution-level --filter that excludes all of that project's tests
+            # makes newer .NET SDKs exit non-zero ("No test matches ..."), so we
+            # skip the project outright instead of filtering it out.
+            for proj in $(find tests -name '*.csproj' ! -path '*Parity.Playwright*' | sort); do
+              dotnet test "$proj" --no-build --verbosity normal
+            done
           fi
