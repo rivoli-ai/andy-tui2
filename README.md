@@ -43,8 +43,6 @@ A modern, reactive TUI framework for .NET 8 with declarative components, reactiv
   - `Andy.Tui.DisplayList`
   - `Andy.Tui.Compositor`
   - `Andy.Tui.Backend.Terminal`
-  - `Andy.Tui.Backend.Web`
-  - `Andy.Tui.Backend.Native`
   - `Andy.Tui.Input`
   - `Andy.Tui.Animations`
   - `Andy.Tui.Virtualization`

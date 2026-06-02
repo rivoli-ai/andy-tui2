@@ -32,8 +32,6 @@
     <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" PrivateAssets="all" />
     <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Web\Andy.Tui.Backend.Web.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Native\Andy.Tui.Backend.Native.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Include all built DLLs in the package -->
@@ -51,8 +49,6 @@
     <None Include="..\Andy.Tui.Virtualization\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Virtualization.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
     <None Include="..\Andy.Tui.Widgets\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Widgets.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
     <None Include="..\Andy.Tui.Observability\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Observability.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Backend.Web\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Web.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Backend.Native\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Native.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>
