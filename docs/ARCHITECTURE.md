@@ -178,8 +178,6 @@ src/
 ├── Andy.Tui.DisplayList/    # Rendering commands
 ├── Andy.Tui.Compositor/     # Layer composition
 ├── Andy.Tui.Backend.Terminal/ # Terminal output
-├── Andy.Tui.Backend.Web/    # Web output backend
-├── Andy.Tui.Backend.Native/ # Native output backend
 ├── Andy.Tui.Input/          # Input handling
 ├── Andy.Tui.Animations/     # Animation system
 ├── Andy.Tui.Virtualization/ # List/table virtualization
