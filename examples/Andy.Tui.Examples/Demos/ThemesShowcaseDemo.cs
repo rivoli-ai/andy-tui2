@@ -25,7 +25,7 @@ public static class ThemesShowcaseDemo
         scheduler.SetMetricsSink(hud);
         var pty = new StdoutPty();
 
-        var themes = BuiltinThemes.All; // Dark, Light, HighContrast
+        var themes = Themes.All; // built-ins + 32 popular ports
         int themeIndex = 0;
 
         Console.Write("[?1049h[?25l[?7l");
@@ -39,8 +39,12 @@ public static class ThemesShowcaseDemo
                 {
                     var k = Console.ReadKey(true);
                     if (k.Key == ConsoleKey.Escape || k.Key == ConsoleKey.Q) { running = false; break; }
-                    if (k.Key == ConsoleKey.T || k.Key == ConsoleKey.Spacebar || k.Key == ConsoleKey.Tab)
+                    if (k.Key == ConsoleKey.T || k.Key == ConsoleKey.Spacebar || k.Key == ConsoleKey.RightArrow
+                        || (k.Key == ConsoleKey.Tab && (k.Modifiers & ConsoleModifiers.Shift) == 0))
                         themeIndex = (themeIndex + 1) % themes.Count;
+                    if (k.Key == ConsoleKey.LeftArrow || k.Key == ConsoleKey.Backspace
+                        || (k.Key == ConsoleKey.Tab && (k.Modifiers & ConsoleModifiers.Shift) != 0))
+                        themeIndex = (themeIndex - 1 + themes.Count) % themes.Count;
                     if (k.Key == ConsoleKey.F2) hud.Enabled = !hud.Enabled;
                 }
 
@@ -102,7 +106,7 @@ public static class ThemesShowcaseDemo
         // Footer hint
         int fy = vp.Height - 1;
         b.DrawRect(new DL.Rect(0, fy, vp.Width, 1, surface));
-        b.DrawText(new DL.TextRun(2, fy, "T/Space: next theme   F2: HUD   Q/Esc: back", muted, surface, DL.CellAttrFlags.None));
+        b.DrawText(new DL.TextRun(2, fy, "←/→ or T: change theme   F2: HUD   Q/Esc: back", muted, surface, DL.CellAttrFlags.None));
 
         b.Pop();
         return b.Build();
