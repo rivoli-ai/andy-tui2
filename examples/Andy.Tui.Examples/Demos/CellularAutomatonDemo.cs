@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,34 +12,36 @@ namespace Andy.Tui.Examples.Demos;
 /// <summary>
 /// Full-terminal cellular automaton, intended as a screensaver foundation.
 ///
-/// To stay "active" — i.e. to avoid drawing the same glyph in the same place on a
-/// regular cadence — it does three things:
-///   * defaults to rules that never settle (cyclic spirals, Seeds, excitable waves);
-///   * <b>auto-rotates</b> through a table of rules every 30s;
-///   * periodically <b>perturbs</b> the field and <b>reseeds</b> on stagnation/extinction.
+/// Stays perpetually "active" (never redrawing the same glyph in the same place on a
+/// regular cadence) via rules that don't settle, 30s auto-rotation through a rule
+/// table, periodic perturbation, and reseed-on-stagnation.
 ///
-/// Rules included: Cyclic CA, Brian's Brain, Life (B3/S23), HighLife, Day &amp; Night,
-/// Seeds, Maze, Forest Fire, and Greenberg-Hastings (excitable medium). Add more by
-/// extending <see cref="Rules"/>.
+/// Rules: Cyclic CA, Brian's Brain, Life (B3/S23), HighLife, Day &amp; Night, Seeds,
+/// Maze, Forest Fire, Greenberg-Hastings (excitable waves), Langton's Ant, and
+/// elementary 1-D rules (30/90/110/184). Life can be seeded with famous patterns
+/// (Gosper glider gun, pulsars, acorn, R-pentomino, glider fleet) — cycle with P.
 ///
-/// Each cell renders as one of a ramp of Unicode circle glyphs depending on its state.
-/// Color comes from a selectable <b>palette</b> (cycle with &lt; / &gt;): palettes are
-/// smooth gradients so bands blend, and switching palettes cross-fades rather than
-/// snapping.
+/// Glyphs come from a selectable theme (cycle with [ / ]): circle/ block/ star ramps,
+/// plus emoji themes (Forest, Plants, Farm, Wild, Birds, Construction, Computers).
+/// Emoji themes render on a double-width grid so they stay aligned.
+///
+/// Color comes from a selectable palette (cycle with &lt; / &gt;): smooth gradients
+/// that blend bands, with a cross-fade on switch and a centered name toast.
 /// </summary>
 public static class CellularAutomatonDemo
 {
-    private enum Kind { Cyclic, BriansBrain, LifeFamily, ForestFire, Greenberg }
+    private enum Kind { Cyclic, BriansBrain, LifeFamily, ForestFire, Greenberg, LangtonAnt, Elementary }
 
-    /// <summary>A simulation rule. Life-family rules are parameterized by birth/survival counts.</summary>
     private sealed class Rule
     {
         public string Name = "";
         public Kind Kind;
-        public bool[] Birth = new bool[9];   // LifeFamily: born when this many live neighbors
-        public bool[] Survive = new bool[9];  // LifeFamily: survives when this many live neighbors
+        public int Param;                     // Elementary: 8-bit rule number
+        public bool[] Birth = new bool[9];    // LifeFamily
+        public bool[] Survive = new bool[9];
 
         public static Rule Simple(string name, Kind kind) => new() { Name = name, Kind = kind };
+        public static Rule Elem(string name, int rule) => new() { Name = name, Kind = Kind.Elementary, Param = rule };
 
         public static Rule Life(string name, string birth, string survive)
         {
@@ -60,23 +63,92 @@ public static class CellularAutomatonDemo
         Rule.Life("Maze", "3", "12345"),
         Rule.Simple("Forest Fire", Kind.ForestFire),
         Rule.Simple("Greenberg-Hastings", Kind.Greenberg),
+        Rule.Simple("Langton's Ant", Kind.LangtonAnt),
+        Rule.Elem("Rule 30", 30),
+        Rule.Elem("Rule 90 (Sierpinski)", 90),
+        Rule.Elem("Rule 110", 110),
+        Rule.Elem("Rule 184 (traffic)", 184),
     };
 
-    // A ramp of circle glyphs from faint/small to solid. All are single-width BMP glyphs.
-    private static readonly string[] CircleRamp = { "·", "∘", "○", "◌", "◍", "◎", "◉", "●" };
+    private sealed class GlyphTheme
+    {
+        public string Name { get; }
+        public int CellW { get; }           // terminal columns per cell (1 or 2 for emoji)
+        public string[] Ramp { get; }       // ordered faint -> bold / small -> large
+        public string AntGlyph { get; }
+        public GlyphTheme(string name, int cellW, string antGlyph, params string[] ramp)
+        { Name = name; CellW = cellW; AntGlyph = antGlyph; Ramp = ramp; }
+    }
+
+    private static readonly GlyphTheme[] GlyphThemes =
+    {
+        new GlyphTheme("Circles", 1, "✦", "·", "∘", "○", "◌", "◍", "◎", "◉", "●"),
+        new GlyphTheme("Blocks", 1, "✦", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"),
+        new GlyphTheme("Stars", 1, "✶", "·", "⋆", "✦", "✧", "★", "✶", "✷", "✹"),
+        new GlyphTheme("Forest", 2, "🐜", "🌱", "🌿", "🍀", "🌾", "🌳", "🌲", "🎋", "🪴"),
+        new GlyphTheme("Plants", 2, "🐝", "🌷", "🌸", "🌹", "🌺", "🌻", "🌼", "💐", "🪷"),
+        new GlyphTheme("Farm", 2, "🐕", "🐤", "🐣", "🐔", "🐓", "🐑", "🐐", "🐖", "🐄"),
+        new GlyphTheme("Wild", 2, "🐾", "🦊", "🐺", "🦌", "🐻", "🦁", "🐘", "🦏", "🐅"),
+        new GlyphTheme("Birds", 2, "🪶", "🐦", "🐧", "🦆", "🦢", "🦅", "🦉", "🦜", "🐓"),
+        new GlyphTheme("Construction", 2, "🚧", "🧱", "🔩", "🔧", "🔨", "🚧", "🚜", "🏭", "🪨"),
+        new GlyphTheme("Computers", 2, "🔌", "💾", "💻", "💿", "📀", "🔌", "🔋", "📡", "📟"),
+    };
+
+    private sealed class LifePattern
+    {
+        public string Name { get; }
+        public string[]? Rows { get; }   // null = random soup
+        public bool Tile { get; }
+        public int Copies { get; }
+        public LifePattern(string name, string[]? rows, bool tile, int copies)
+        { Name = name; Rows = rows; Tile = tile; Copies = copies; }
+    }
+
+    private static readonly LifePattern[] LifeSeeds =
+    {
+        new LifePattern("Soup", null, false, 0),
+        new LifePattern("Glider Gun", new[]
+        {
+            "........................O...........",
+            "......................O.O...........",
+            "............OO......OO............OO",
+            "...........O...O....OO............OO",
+            "OO........O.....O...OO..............",
+            "OO........O...O.OO....O.O...........",
+            "..........O.....O.......O...........",
+            "...........O...O....................",
+            "............OO......................",
+        }, false, 2),
+        new LifePattern("Pulsars", new[]
+        {
+            "..OOO...OOO..",
+            ".............",
+            "O....O.O....O",
+            "O....O.O....O",
+            "O....O.O....O",
+            "..OOO...OOO..",
+            ".............",
+            "..OOO...OOO..",
+            "O....O.O....O",
+            "O....O.O....O",
+            "O....O.O....O",
+            ".............",
+            "..OOO...OOO..",
+        }, true, 0),
+        new LifePattern("Glider Fleet", new[] { ".O.", "..O", "OOO" }, false, 14),
+        new LifePattern("Acorn", new[] { ".O.....", "...O...", "OO..OOO" }, false, 3),
+        new LifePattern("R-pentomino", new[] { ".OO", "OO.", ".O." }, false, 4),
+    };
 
     // Brian's Brain / Forest Fire cell states.
-    private const int Off = 0, On = 1, Dying = 2; // Brian: Off/On/Dying; Fire: Empty/Tree/Burning
+    private const int Off = 0, On = 1, Dying = 2;
 
     private const long AutoRotateMs = 30_000;
     private const int PaletteFadeMs = 600;
-    private const long PaletteToastMs = 1_400;
+    private const long ToastMs = 1_500;
+    private const double FireGrow = 0.012;
+    private const double FireLightning = 6e-5;
 
-    // Forest Fire probabilities.
-    private const double FireGrow = 0.012;     // empty -> tree
-    private const double FireLightning = 6e-5;  // tree -> burning spontaneously
-
-    /// <summary>A seamless ring of colors, sampled with smooth (circular) interpolation.</summary>
     private sealed class Palette
     {
         public string Name { get; }
@@ -85,7 +157,7 @@ public static class CellularAutomatonDemo
 
         public DL.Rgb24 At(double t)
         {
-            t -= Math.Floor(t); // fractional part -> [0,1)
+            t -= Math.Floor(t);
             int n = _c.Length;
             double scaled = t * n;
             int i = (int)scaled;
@@ -143,11 +215,18 @@ public static class CellularAutomatonDemo
         int H = Math.Max(1, viewport.Height);
 
         int ruleIndex = 0;
-        int states = 12;     // cyclic-CA state count
-        int threshold = 1;   // cyclic-CA advance threshold (Moore neighborhood)
-        int ghStates = 8;    // Greenberg-Hastings phase count
-        int[] grid = new int[W * H];
-        int[] next = new int[W * H];
+        int themeIndex = 0;
+        int lifeSeedIndex = 0;
+        int states = 12;     // cyclic-CA states
+        int threshold = 1;   // cyclic-CA threshold
+        int ghStates = 8;    // Greenberg-Hastings phases
+
+        int cellW = GlyphThemes[themeIndex].CellW;
+        int gw = Math.Max(1, W / cellW), gh = Math.Max(1, H);
+        int[] grid = new int[gw * gh];
+        int[] next = new int[gw * gh];
+        var ants = new List<(int x, int y, int dir)>();
+        int gen = 0; // counter for Langton trails / elementary generations
 
         bool paused = false;
         bool showFooter = true;
@@ -155,106 +234,168 @@ public static class CellularAutomatonDemo
         int stepDelayMs = 70;
 
         long now = Environment.TickCount64;
-        long startMs = now;
-        long lastStepMs = now;
-        long lastModeSwitchMs = now;
-        long lastPerturbMs = now;
+        long startMs = now, lastStepMs = now, lastModeSwitchMs = now, lastPerturbMs = now;
 
-        // Palette selection + cross-fade state.
-        int paletteIndex = 0;
-        int prevPaletteIndex = 0;
-        long paletteFadeStartMs = now - PaletteFadeMs * 2; // start fully settled
-        long paletteToastUntilMs = 0;
+        int paletteIndex = 0, prevPaletteIndex = 0;
+        long paletteFadeStartMs = now - PaletteFadeMs * 2;
+        long toastUntilMs = 0;
+        string toastText = "";
 
-        // Stagnation tracking (used by Life-family).
-        int stagnantSteps = 0;
-        int lastPop = -1;
-
+        int stagnantSteps = 0, lastPop = -1;
         bool dirty = true;
+
+        void Toast(string text) { toastText = text; toastUntilMs = Environment.TickCount64 + ToastMs; dirty = true; }
+
+        void PlaceLifeSeed()
+        {
+            Array.Clear(grid, 0, grid.Length);
+            var p = LifeSeeds[lifeSeedIndex];
+            if (p.Rows is null)
+            {
+                for (int i = 0; i < grid.Length; i++) grid[i] = rng.Next(100) < 30 ? 1 : 0;
+                return;
+            }
+            int ph = p.Rows.Length, pw = 0;
+            foreach (var row in p.Rows) pw = Math.Max(pw, row.Length);
+
+            void Stamp(int ox, int oy)
+            {
+                for (int ry = 0; ry < ph; ry++)
+                    for (int rx = 0; rx < p.Rows[ry].Length; rx++)
+                        if (p.Rows[ry][rx] == 'O')
+                        {
+                            int gx = ox + rx, gy = oy + ry;
+                            if (gx >= 0 && gx < gw && gy >= 0 && gy < gh) grid[gy * gw + gx] = 1;
+                        }
+            }
+
+            if (p.Tile)
+                for (int oy = 1; oy < gh; oy += ph + 2)
+                    for (int ox = 1; ox < gw; ox += pw + 2)
+                        Stamp(ox, oy);
+            else
+                for (int k = 0; k < p.Copies; k++)
+                    Stamp(rng.Next(Math.Max(1, gw - pw)), rng.Next(Math.Max(1, gh - ph)));
+        }
 
         void Seed()
         {
             var kind = Rules[ruleIndex].Kind;
-            for (int i = 0; i < grid.Length; i++)
+            switch (kind)
             {
-                grid[i] = kind switch
-                {
-                    Kind.Cyclic => rng.Next(states),
-                    Kind.BriansBrain => rng.Next(3) == 0 ? On : Off,
-                    Kind.LifeFamily => rng.Next(100) < 30 ? 1 : 0,
-                    Kind.ForestFire => rng.Next(100) < 55 ? On : Off,
-                    Kind.Greenberg => rng.Next(100) < 15 ? rng.Next(1, ghStates) : 0,
-                    _ => 0,
-                };
+                case Kind.LifeFamily:
+                    PlaceLifeSeed();
+                    break;
+                case Kind.Cyclic:
+                    for (int i = 0; i < grid.Length; i++) grid[i] = rng.Next(states);
+                    break;
+                case Kind.BriansBrain:
+                    for (int i = 0; i < grid.Length; i++) grid[i] = rng.Next(3) == 0 ? On : Off;
+                    break;
+                case Kind.ForestFire:
+                    for (int i = 0; i < grid.Length; i++) grid[i] = rng.Next(100) < 55 ? On : Off;
+                    break;
+                case Kind.Greenberg:
+                    for (int i = 0; i < grid.Length; i++) grid[i] = rng.Next(100) < 15 ? rng.Next(1, ghStates) : 0;
+                    break;
+                case Kind.LangtonAnt:
+                    Array.Clear(grid, 0, grid.Length);
+                    ants.Clear();
+                    int nAnts = Math.Max(2, (gw * gh) / 3000);
+                    for (int a = 0; a < nAnts; a++) ants.Add((rng.Next(gw), rng.Next(gh), rng.Next(4)));
+                    gen = 0;
+                    break;
+                case Kind.Elementary:
+                    Array.Clear(grid, 0, grid.Length);
+                    gen = 0;
+                    grid[(gh - 1) * gw + gw / 2] = ++gen; // single seed on the bottom row
+                    break;
             }
             stagnantSteps = 0;
             lastPop = -1;
         }
 
-        void OnRuleChanged()
+        void Realloc()
         {
-            var kind = Rules[ruleIndex].Kind;
-            if (kind == Kind.Cyclic) states = 8 + rng.Next(9);   // 8..16 for palette variety
-            if (kind == Kind.Greenberg) ghStates = 6 + rng.Next(6); // 6..11
+            cellW = GlyphThemes[themeIndex].CellW;
+            gw = Math.Max(1, W / cellW);
+            gh = Math.Max(1, H);
+            grid = new int[gw * gh];
+            next = new int[gw * gh];
             Seed();
             dirty = true;
         }
 
-        void NextMode()
+        void OnRuleChanged()
         {
-            ruleIndex = (ruleIndex + 1) % Rules.Length;
-            OnRuleChanged();
+            var kind = Rules[ruleIndex].Kind;
+            if (kind == Kind.Cyclic) states = 8 + rng.Next(9);
+            if (kind == Kind.Greenberg) ghStates = 6 + rng.Next(6);
+            Seed();
+            dirty = true;
+            Toast(Rules[ruleIndex].Name);
         }
+
+        void NextMode() { ruleIndex = (ruleIndex + 1) % Rules.Length; OnRuleChanged(); }
 
         void CyclePalette(int dir)
         {
             prevPaletteIndex = paletteIndex;
             paletteIndex = (paletteIndex + dir + Palettes.Length) % Palettes.Length;
-            long t = Environment.TickCount64;
-            paletteFadeStartMs = t;
-            paletteToastUntilMs = t + PaletteToastMs;
-            dirty = true;
+            paletteFadeStartMs = Environment.TickCount64;
+            Toast("Palette: " + Palettes[paletteIndex].Name);
+        }
+
+        void CycleTheme(int dir)
+        {
+            int old = GlyphThemes[themeIndex].CellW;
+            themeIndex = (themeIndex + dir + GlyphThemes.Length) % GlyphThemes.Length;
+            if (GlyphThemes[themeIndex].CellW != old) Realloc();
+            Toast("Theme: " + GlyphThemes[themeIndex].Name);
+        }
+
+        void CycleSeed(int dir)
+        {
+            lifeSeedIndex = (lifeSeedIndex + dir + LifeSeeds.Length) % LifeSeeds.Length;
+            if (Rules[ruleIndex].Kind == Kind.LifeFamily) Seed();
+            Toast("Seed: " + LifeSeeds[lifeSeedIndex].Name);
         }
 
         void Perturb()
         {
-            // Inject defects so cyclic spirals / waves keep forming and never settle.
             int n = grid.Length / 200 + 5;
-            var kind = Rules[ruleIndex].Kind;
+            bool gh_ = Rules[ruleIndex].Kind == Kind.Greenberg;
             for (int k = 0; k < n; k++)
-            {
-                int idx = rng.Next(grid.Length);
-                grid[idx] = kind == Kind.Greenberg ? 1 : rng.Next(states);
-            }
+                grid[rng.Next(grid.Length)] = gh_ ? 1 : rng.Next(states);
         }
 
-        int CountEq(int[] g, int x, int y, int wanted)
+        int CountEq(int x, int y, int wanted)
         {
             int c = 0;
             for (int dy = -1; dy <= 1; dy++)
             {
-                int ny = (y + dy + H) % H;
+                int ny = (y + dy + gh) % gh;
                 for (int dx = -1; dx <= 1; dx++)
                 {
                     if (dx == 0 && dy == 0) continue;
-                    int nx = (x + dx + W) % W;
-                    if (g[ny * W + nx] == wanted) c++;
+                    int nx = (x + dx + gw) % gw;
+                    if (grid[ny * gw + nx] == wanted) c++;
                 }
             }
             return c;
         }
 
-        int CountAlive(int[] g, int x, int y)
+        int CountAlive(int x, int y)
         {
             int c = 0;
             for (int dy = -1; dy <= 1; dy++)
             {
-                int ny = (y + dy + H) % H;
+                int ny = (y + dy + gh) % gh;
                 for (int dx = -1; dx <= 1; dx++)
                 {
                     if (dx == 0 && dy == 0) continue;
-                    int nx = (x + dx + W) % W;
-                    if (g[ny * W + nx] > 0) c++;
+                    int nx = (x + dx + gw) % gw;
+                    if (grid[ny * gw + nx] > 0) c++;
                 }
             }
             return c;
@@ -266,26 +407,24 @@ public static class CellularAutomatonDemo
             switch (rule.Kind)
             {
                 case Kind.Cyclic:
-                    for (int y = 0; y < H; y++)
-                        for (int x = 0; x < W; x++)
+                    for (int y = 0; y < gh; y++)
+                        for (int x = 0; x < gw; x++)
                         {
-                            int i = y * W + x;
-                            int cur = grid[i];
-                            int want = (cur + 1) % states;
-                            next[i] = CountEq(grid, x, y, want) >= threshold ? want : cur;
+                            int i = y * gw + x, cur = grid[i], want = (cur + 1) % states;
+                            next[i] = CountEq(x, y, want) >= threshold ? want : cur;
                         }
                     break;
 
                 case Kind.BriansBrain:
-                    for (int y = 0; y < H; y++)
-                        for (int x = 0; x < W; x++)
+                    for (int y = 0; y < gh; y++)
+                        for (int x = 0; x < gw; x++)
                         {
-                            int i = y * W + x;
+                            int i = y * gw + x;
                             next[i] = grid[i] switch
                             {
                                 On => Dying,
                                 Dying => Off,
-                                _ => CountEq(grid, x, y, On) == 2 ? On : Off,
+                                _ => CountEq(x, y, On) == 2 ? On : Off,
                             };
                         }
                     break;
@@ -293,12 +432,12 @@ public static class CellularAutomatonDemo
                 case Kind.LifeFamily:
                 {
                     int pop = 0;
-                    for (int y = 0; y < H; y++)
-                        for (int x = 0; x < W; x++)
+                    for (int y = 0; y < gh; y++)
+                        for (int x = 0; x < gw; x++)
                         {
-                            int i = y * W + x;
+                            int i = y * gw + x;
                             bool alive = grid[i] > 0;
-                            int n = CountAlive(grid, x, y);
+                            int n = CountAlive(x, y);
                             bool live = alive ? rule.Survive[n] : rule.Birth[n];
                             next[i] = live ? (alive ? Math.Min(grid[i] + 1, 9999) : 1) : 0;
                             if (next[i] > 0) pop++;
@@ -311,88 +450,125 @@ public static class CellularAutomatonDemo
                 }
 
                 case Kind.ForestFire:
-                    for (int y = 0; y < H; y++)
-                        for (int x = 0; x < W; x++)
+                    for (int y = 0; y < gh; y++)
+                        for (int x = 0; x < gw; x++)
                         {
-                            int i = y * W + x;
-                            int cur = grid[i];
-                            if (cur == Dying) next[i] = Off;                 // burned out
-                            else if (cur == On)                              // tree
-                                next[i] = (CountEq(grid, x, y, Dying) > 0 || rng.NextDouble() < FireLightning) ? Dying : On;
-                            else                                             // empty
-                                next[i] = rng.NextDouble() < FireGrow ? On : Off;
+                            int i = y * gw + x, cur = grid[i];
+                            if (cur == Dying) next[i] = Off;
+                            else if (cur == On)
+                                next[i] = (CountEq(x, y, Dying) > 0 || rng.NextDouble() < FireLightning) ? Dying : On;
+                            else next[i] = rng.NextDouble() < FireGrow ? On : Off;
                         }
                     break;
 
                 case Kind.Greenberg:
                 {
                     int active = 0;
-                    for (int y = 0; y < H; y++)
-                        for (int x = 0; x < W; x++)
+                    for (int y = 0; y < gh; y++)
+                        for (int x = 0; x < gw; x++)
                         {
-                            int i = y * W + x;
-                            int cur = grid[i];
-                            int nv;
-                            if (cur == 0) nv = CountEq(grid, x, y, 1) >= 1 ? 1 : 0; // excite
-                            else if (cur >= ghStates - 1) nv = 0;                    // refractory -> rest
-                            else nv = cur + 1;                                       // advance phase
+                            int i = y * gw + x, cur = grid[i], nv;
+                            if (cur == 0) nv = CountEq(x, y, 1) >= 1 ? 1 : 0;
+                            else if (cur >= ghStates - 1) nv = 0;
+                            else nv = cur + 1;
                             next[i] = nv;
                             if (nv > 0) active++;
                         }
                     if (active == 0) { Seed(); return; }
                     break;
                 }
+
+                case Kind.LangtonAnt:
+                {
+                    int sub = Math.Max(40, gw);
+                    for (int s = 0; s < sub; s++)
+                        for (int a = 0; a < ants.Count; a++)
+                        {
+                            var (ax, ay, dir) = ants[a];
+                            int gi = ay * gw + ax;
+                            if (grid[gi] > 0) { dir = (dir + 3) % 4; grid[gi] = 0; }       // on  -> turn left, erase
+                            else { dir = (dir + 1) % 4; grid[gi] = ++gen; }                // off -> turn right, paint
+                            switch (dir) { case 0: ay--; break; case 1: ax++; break; case 2: ay++; break; default: ax--; break; }
+                            ax = (ax + gw) % gw; ay = (ay + gh) % gh;
+                            ants[a] = (ax, ay, dir);
+                        }
+                    return; // mutates grid in place
+                }
+
+                case Kind.Elementary:
+                {
+                    if (gh < 2) return;
+                    Array.Copy(grid, gw, grid, 0, (gh - 1) * gw); // scroll rows up by one
+                    int prev = (gh - 2) * gw, bottom = (gh - 1) * gw;
+                    gen++;
+                    int on = 0;
+                    for (int x = 0; x < gw; x++)
+                    {
+                        int l = grid[prev + (x - 1 + gw) % gw] > 0 ? 1 : 0;
+                        int c = grid[prev + x] > 0 ? 1 : 0;
+                        int r = grid[prev + (x + 1) % gw] > 0 ? 1 : 0;
+                        int idx = (l << 2) | (c << 1) | r;
+                        bool alive = ((rule.Param >> idx) & 1) != 0;
+                        grid[bottom + x] = alive ? gen : 0;
+                        if (alive) on++;
+                    }
+                    if (on == 0) Seed();
+                    return; // mutates grid in place
+                }
             }
 
             var tmp = grid; grid = next; next = tmp;
         }
 
-        // Maps a cell value to a glyph (null = draw nothing) and a normalized palette
-        // position t in [0,1). For the cyclic CA, <paramref name="rot"/> slowly rotates
-        // the whole ring so the palette drifts over time.
+        string Ramp(int idx)
+        {
+            var r = GlyphThemes[themeIndex].Ramp;
+            if (idx < 0) idx = 0; else if (idx >= r.Length) idx = r.Length - 1;
+            return r[idx];
+        }
+
         (string? glyph, double t) CellVisual(int value, double rot)
         {
+            int rampLen = GlyphThemes[themeIndex].Ramp.Length;
             switch (Rules[ruleIndex].Kind)
             {
                 case Kind.Cyclic:
-                {
-                    int idx = (int)((long)value * CircleRamp.Length / Math.Max(1, states));
-                    if (idx >= CircleRamp.Length) idx = CircleRamp.Length - 1;
-                    return (CircleRamp[idx], value / (double)states + rot);
-                }
+                    return (Ramp((int)((long)value * rampLen / Math.Max(1, states))), value / (double)states + rot);
                 case Kind.BriansBrain:
                     return value switch
                     {
-                        On => ("●", 0.82),
-                        Dying => ("○", 0.42),
+                        On => (Ramp(rampLen - 1), 0.82),
+                        Dying => (Ramp(rampLen / 2), 0.42),
                         _ => (null, 0.0),
                     };
                 case Kind.ForestFire:
                     return value switch
                     {
-                        On => ("◍", 0.45),       // tree
-                        Dying => ("●", 0.95),    // burning
-                        _ => (null, 0.0),         // empty
+                        On => (Ramp(rampLen / 2), 0.45),
+                        Dying => (Ramp(rampLen - 1), 0.95),
+                        _ => (null, 0.0),
                     };
                 case Kind.Greenberg:
-                {
-                    if (value <= 0) return (null, 0.0); // resting
-                    int idx = (int)((long)value * CircleRamp.Length / Math.Max(1, ghStates));
-                    if (idx >= CircleRamp.Length) idx = CircleRamp.Length - 1;
-                    return (CircleRamp[idx], value / (double)ghStates);
-                }
+                    if (value <= 0) return (null, 0.0);
+                    return (Ramp((int)((long)value * rampLen / Math.Max(1, ghStates))), value / (double)ghStates);
+                case Kind.LangtonAnt:
+                    if (value <= 0) return (null, 0.0);
+                    return (Ramp(value % rampLen), (value >> 3) * 0.03); // quantized color keeps runs batchable
+                case Kind.Elementary:
+                    if (value <= 0) return (null, 0.0);
+                    return (Ramp(rampLen - 1), value * 0.02);
                 case Kind.LifeFamily:
                 default:
                     if (value <= 0) return (null, 0.0);
-                    int ri = Math.Min(value + 1, CircleRamp.Length - 1);
-                    return (CircleRamp[ri], 0.08 + value * 0.05); // hue drifts as the cell ages
+                    return (Ramp(Math.Min(value + 1, rampLen - 1)), 0.08 + value * 0.05);
             }
         }
 
         DL.DisplayList BuildDisplayList()
         {
             long tnow = Environment.TickCount64;
-            double rot = Rules[ruleIndex].Kind == Kind.Cyclic ? (tnow - startMs) / 8000.0 : 0.0; // full ring every ~8s
+            var kind = Rules[ruleIndex].Kind;
+            double rot = kind == Kind.Cyclic ? (tnow - startMs) / 8000.0 : 0.0;
             double fade = PaletteFadeMs <= 0 ? 1.0 : Math.Clamp((tnow - paletteFadeStartMs) / (double)PaletteFadeMs, 0.0, 1.0);
 
             DL.Rgb24 ColorAt(double t)
@@ -405,63 +581,70 @@ public static class CellularAutomatonDemo
             b.PushClip(new DL.ClipPush(0, 0, W, H));
             b.DrawRect(new DL.Rect(0, 0, W, H, new DL.Rgb24(0, 0, 0)));
 
-            var glyphs = new string?[W];
-            var fgs = new DL.Rgb24[W];
+            var glyphs = new string?[gw];
+            var fgs = new DL.Rgb24[gw];
             var sb = new StringBuilder();
 
-            for (int y = 0; y < H; y++)
+            for (int cy = 0; cy < gh; cy++)
             {
-                for (int x = 0; x < W; x++)
+                for (int cx = 0; cx < gw; cx++)
                 {
-                    var (g, t) = CellVisual(grid[y * W + x], rot);
-                    glyphs[x] = g;
-                    fgs[x] = g is null ? default : ColorAt(t);
+                    var (g, t) = CellVisual(grid[cy * gw + cx], rot);
+                    glyphs[cx] = g;
+                    fgs[cx] = g is null ? default : ColorAt(t);
                 }
 
-                // Run-length batch consecutive non-blank cells that share a color.
                 int x2 = 0;
-                while (x2 < W)
+                while (x2 < gw)
                 {
                     if (glyphs[x2] is null) { x2++; continue; }
                     int start = x2;
                     var color = fgs[x2];
                     sb.Clear();
-                    while (x2 < W && glyphs[x2] is string gg && fgs[x2].Equals(color))
+                    while (x2 < gw && glyphs[x2] is string gg && fgs[x2].Equals(color))
                     {
                         sb.Append(gg);
                         x2++;
                     }
-                    b.DrawText(new DL.TextRun(start, y, sb.ToString(), color, null, DL.CellAttrFlags.None));
+                    b.DrawText(new DL.TextRun(start * cellW, cy, sb.ToString(), color, null, DL.CellAttrFlags.None));
                 }
             }
 
-            // Brief centered toast naming the palette (visible even with footer hidden).
-            if (tnow < paletteToastUntilMs && H >= 1)
+            // Langton ants on top.
+            if (kind == Kind.LangtonAnt)
             {
-                string label = "‹ " + Palettes[paletteIndex].Name + " ›";
+                string antGlyph = GlyphThemes[themeIndex].AntGlyph;
+                foreach (var (ax, ay, _) in ants)
+                    b.DrawText(new DL.TextRun(ax * cellW, ay, antGlyph, new DL.Rgb24(255, 255, 255), null, DL.CellAttrFlags.Bold));
+            }
+
+            if (tnow < toastUntilMs && H >= 1)
+            {
+                string label = "‹ " + toastText + " ›";
                 int tx = Math.Max(0, (W - label.Length) / 2);
                 int ty = H / 2;
                 b.DrawRect(new DL.Rect(Math.Max(0, tx - 1), ty, Math.Min(W, label.Length + 2), 1, new DL.Rgb24(22, 22, 30)));
                 b.DrawText(new DL.TextRun(tx, ty, label, new DL.Rgb24(235, 235, 245), null, DL.CellAttrFlags.Bold));
             }
 
-            if (showFooter && H >= 1)
+            if (showFooter && H >= 2)
             {
-                string name = Rules[ruleIndex].Kind == Kind.Cyclic
-                    ? $"Cyclic CA (states {states})"
-                    : Rules[ruleIndex].Name;
-                string pauseTag = paused ? " [PAUSED]" : "";
-                string footer = $" {name}{pauseTag} · Palette: {Palettes[paletteIndex].Name} · M mode  </> palette  Space pause  R reseed  +/- speed  H hide  ESC quit ";
-                if (footer.Length > W) footer = footer.Substring(0, W);
-                b.DrawRect(new DL.Rect(0, H - 1, W, 1, new DL.Rgb24(12, 12, 18)));
-                b.DrawText(new DL.TextRun(0, H - 1, footer, new DL.Rgb24(170, 170, 185), null, DL.CellAttrFlags.None));
+                string ruleName = kind == Kind.Cyclic ? $"Cyclic CA (states {states})" : Rules[ruleIndex].Name;
+                string seedInfo = kind == Kind.LifeFamily ? $" · Seed {LifeSeeds[lifeSeedIndex].Name}" : "";
+                string l1 = $" {ruleName}{(paused ? " [PAUSED]" : "")} · Palette {Palettes[paletteIndex].Name} · Theme {GlyphThemes[themeIndex].Name}{seedInfo}";
+                string l2 = " M rule  < > palette  [ ] theme  P seed  Space pause  R reseed  A auto  +/- speed  H hide  ESC quit";
+                if (l1.Length > W) l1 = l1.Substring(0, W);
+                if (l2.Length > W) l2 = l2.Substring(0, W);
+                b.DrawRect(new DL.Rect(0, H - 2, W, 2, new DL.Rgb24(12, 12, 18)));
+                b.DrawText(new DL.TextRun(0, H - 2, l1, new DL.Rgb24(200, 200, 130), null, DL.CellAttrFlags.Bold));
+                b.DrawText(new DL.TextRun(0, H - 1, l2, new DL.Rgb24(150, 150, 165), null, DL.CellAttrFlags.None));
             }
 
             b.Pop();
             return b.Build();
         }
 
-        Seed();
+        Realloc();
 
         Console.Write("\u001b[?1049h\u001b[?25l\u001b[?7l");
         try
@@ -470,17 +653,15 @@ public static class CellularAutomatonDemo
             bool running = true;
             while (running)
             {
-                var newVp = TerminalHelpers.PollResize(viewport, scheduler);
-                if (newVp != viewport)
+                int cw = Console.WindowWidth, ch = Console.WindowHeight;
+                if (cw != W || ch != H)
                 {
-                    viewport = newVp;
-                    W = Math.Max(1, viewport.Width);
-                    H = Math.Max(1, viewport.Height);
-                    grid = new int[W * H];
-                    next = new int[W * H];
-                    Seed();
-                    dirty = true;
+                    scheduler.SetForceFullClear(true);
+                    viewport = (cw, ch);
+                    W = Math.Max(1, cw); H = Math.Max(1, ch);
+                    Realloc();
                 }
+                else scheduler.SetForceFullClear(false);
 
                 while (Console.KeyAvailable)
                 {
@@ -493,8 +674,11 @@ public static class CellularAutomatonDemo
                     else if (c == 'm') { NextMode(); lastModeSwitchMs = Environment.TickCount64; }
                     else if (c == 'a') { autoRotate = !autoRotate; dirty = true; }
                     else if (c == 'h') { showFooter = !showFooter; dirty = true; }
+                    else if (c == 'p') CycleSeed(+1);
                     else if (c == '<' || c == ',') CyclePalette(-1);
                     else if (c == '>' || c == '.') CyclePalette(+1);
+                    else if (c == '[') CycleTheme(-1);
+                    else if (c == ']') CycleTheme(+1);
                     else if (c == '+' || c == '=' || k.Key == ConsoleKey.OemPlus || k.Key == ConsoleKey.Add)
                         stepDelayMs = Math.Max(10, stepDelayMs - 10);
                     else if (c == '-' || c == '_' || k.Key == ConsoleKey.OemMinus || k.Key == ConsoleKey.Subtract)
@@ -504,11 +688,7 @@ public static class CellularAutomatonDemo
                 if (!running) break;
 
                 now = Environment.TickCount64;
-                if (autoRotate && now - lastModeSwitchMs >= AutoRotateMs)
-                {
-                    NextMode();
-                    lastModeSwitchMs = now;
-                }
+                if (autoRotate && now - lastModeSwitchMs >= AutoRotateMs) { NextMode(); lastModeSwitchMs = now; }
 
                 if (!paused && now - lastStepMs >= stepDelayMs)
                 {
@@ -523,24 +703,17 @@ public static class CellularAutomatonDemo
                     }
                 }
 
-                // While a palette cross-fade or its toast is active, keep redrawing so the
-                // blend animates frame-by-frame rather than only on simulation steps.
                 bool fading = now - paletteFadeStartMs < PaletteFadeMs;
-                bool toasting = now < paletteToastUntilMs;
+                bool toasting = now < toastUntilMs;
                 if (fading || toasting) dirty = true;
 
-                if (dirty || cached is null)
-                {
-                    cached = BuildDisplayList();
-                    dirty = false;
-                }
+                if (dirty || cached is null) { cached = BuildDisplayList(); dirty = false; }
 
                 DL.DisplayList frame = cached;
                 if (hud.Enabled)
                 {
                     var overlay = new DL.DisplayListBuilder();
-                    hud.ViewportCols = viewport.Width;
-                    hud.ViewportRows = viewport.Height;
+                    hud.ViewportCols = viewport.Width; hud.ViewportRows = viewport.Height;
                     hud.Contribute(cached, overlay);
                     frame = Combine(cached, overlay.Build());
                 }
