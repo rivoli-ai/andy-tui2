@@ -18,12 +18,9 @@ public static class PopularThemes
         return RgbaColor.FromRgb(r, g, b);
     }
 
-    /// <param name="bg">base background</param>
-    /// <param name="bg1">raised surface (panels, buttons)</param>
-    /// <param name="bg2">overlay / border level</param>
-    /// <param name="sel">selection / active highlight</param>
-    /// <param name="fg">primary text</param>
-    /// <param name="dim">muted text / comments</param>
+    // Core palette: bg = base background, bg1 = raised surface, bg2 = overlay/border
+    // level, sel = selection/active highlight, fg = primary text, dim = muted/comment,
+    // accent + the six ANSI hues (red/green/yellow/blue/magenta/cyan).
     private static Theme Build(string name,
         string bg, string bg1, string bg2, string sel, string fg, string dim, string accent,
         string red, string green, string yellow, string blue, string magenta, string cyan)
