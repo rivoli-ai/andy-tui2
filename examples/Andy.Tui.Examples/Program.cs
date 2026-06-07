@@ -9,10 +9,25 @@ using Andy.Tui.DisplayList;
 
 class Program
 {
-    static async Task Main()
+    static async Task Main(string[] args)
     {
         var caps = CapabilityDetector.DetectFromEnvironment();
         var viewport = (Width: Console.WindowWidth, Height: Console.WindowHeight);
+
+        // Launch a demo directly (skip the menu), e.g. `dotnet run -- screensaver`.
+        var direct = args.Length > 0 ? args[0].Trim().ToLowerInvariant() : "";
+        switch (direct)
+        {
+            case "screensaver":
+            case "ca":
+            case "automaton":
+                await CellularAutomatonDemo.Run(viewport, caps, screensaver: true);
+                return;
+            case "emoji":
+                await EmojiShowcaseDemo.Run(viewport, caps);
+                return;
+        }
+
         await RunMainMenu(viewport, caps);
     }
 
@@ -245,7 +260,8 @@ class Program
                 "64) Hacker News Reader",
                 "65) Transparent Background",
                 "66) Themes Showcase (all themes)",
-                "67) Cellular Automaton (screensaver)"
+                "67) Cellular Automaton (screensaver)",
+                "68) Emoji Showcase"
             };
 
             // Two-column layout
@@ -336,6 +352,7 @@ class Program
                 case "65": await TransparentBackgroundDemo.Run(viewport, caps); break;
                 case "66": await ThemesShowcaseDemo.Run(viewport, caps); break;
                 case "67": await CellularAutomatonDemo.Run(viewport, caps); break;
+                case "68": await EmojiShowcaseDemo.Run(viewport, caps); break;
             }
         }
     }

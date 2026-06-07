@@ -30,7 +30,7 @@ namespace Andy.Tui.Examples.Demos;
 /// </summary>
 public static class CellularAutomatonDemo
 {
-    private enum Kind { Cyclic, BriansBrain, LifeFamily, ForestFire, Greenberg, LangtonAnt, Elementary }
+    private enum Kind { Cyclic, BriansBrain, LifeFamily, ForestFire, Greenberg, LangtonAnt, Elementary, ReactionDiffusion }
 
     private sealed class Rule
     {
@@ -68,6 +68,7 @@ public static class CellularAutomatonDemo
         Rule.Elem("Rule 90 (Sierpinski)", 90),
         Rule.Elem("Rule 110", 110),
         Rule.Elem("Rule 184 (traffic)", 184),
+        Rule.Simple("Reaction-Diffusion", Kind.ReactionDiffusion),
     };
 
     private sealed class GlyphTheme
@@ -92,6 +93,11 @@ public static class CellularAutomatonDemo
         new GlyphTheme("Birds", 2, "🪶", "🐦", "🐧", "🦆", "🦢", "🦅", "🦉", "🦜", "🐓"),
         new GlyphTheme("Construction", 2, "🚧", "🧱", "🔩", "🔧", "🔨", "🚧", "🚜", "🏭", "🪨"),
         new GlyphTheme("Computers", 2, "🔌", "💾", "💻", "💿", "📀", "🔌", "🔋", "📡", "📟"),
+        new GlyphTheme("Moon", 2, "🌝", "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"),
+        new GlyphTheme("Sea", 2, "🦈", "🐟", "🐠", "🐡", "🦑", "🐙", "🦀", "🐚", "🐳"),
+        new GlyphTheme("Food", 2, "🍒", "🍎", "🍊", "🍋", "🍏", "🍐", "🍓", "🫐", "🍇"),
+        new GlyphTheme("Bugs", 2, "🐝", "🐛", "🐜", "🐝", "🦋", "🐞", "🦗", "🦟", "🐌"),
+        new GlyphTheme("Weather", 1, "✦", "·", "☁", "☂", "☃", "❄", "☀", "★", "☄"),
     };
 
     private sealed class LifePattern
@@ -136,6 +142,7 @@ public static class CellularAutomatonDemo
             "..OOO...OOO..",
         }, true, 0),
         new LifePattern("Glider Fleet", new[] { ".O.", "..O", "OOO" }, false, 14),
+        new LifePattern("Spaceships", new[] { ".OOOO", "O...O", "....O", "O..O." }, false, 8),
         new LifePattern("Acorn", new[] { ".O.....", "...O...", "OO..OOO" }, false, 3),
         new LifePattern("R-pentomino", new[] { ".OO", "OO.", ".O." }, false, 4),
     };
@@ -202,7 +209,7 @@ public static class CellularAutomatonDemo
         };
     }
 
-    public static async Task Run((int Width, int Height) viewport, TerminalCapabilities caps)
+    public static async Task Run((int Width, int Height) viewport, TerminalCapabilities caps, bool screensaver = false)
     {
         var scheduler = new Andy.Tui.Core.FrameScheduler();
         var hud = new Andy.Tui.Observability.HudOverlay { Enabled = false };
@@ -225,11 +232,13 @@ public static class CellularAutomatonDemo
         int gw = Math.Max(1, W / cellW), gh = Math.Max(1, H);
         int[] grid = new int[gw * gh];
         int[] next = new int[gw * gh];
+        // Reaction-Diffusion (Gray-Scott) chemical fields.
+        float[] rdU = new float[gw * gh], rdV = new float[gw * gh], rdU2 = new float[gw * gh], rdV2 = new float[gw * gh];
         var ants = new List<(int x, int y, int dir)>();
         int gen = 0; // counter for Langton trails / elementary generations
 
         bool paused = false;
-        bool showFooter = true;
+        bool showFooter = !screensaver;
         bool autoRotate = true;
         int stepDelayMs = 70;
 
@@ -310,6 +319,20 @@ public static class CellularAutomatonDemo
                     gen = 0;
                     grid[(gh - 1) * gw + gw / 2] = ++gen; // single seed on the bottom row
                     break;
+                case Kind.ReactionDiffusion:
+                    for (int i = 0; i < rdU.Length; i++) { rdU[i] = 1f; rdV[i] = 0f; }
+                    int blobs = grid.Length / 400 + 8;
+                    for (int bI = 0; bI < blobs; bI++)
+                    {
+                        int cx = rng.Next(gw), cy = rng.Next(gh);
+                        for (int dy = -2; dy <= 2; dy++)
+                            for (int dx = -2; dx <= 2; dx++)
+                            {
+                                int j = ((cy + dy + gh) % gh) * gw + (cx + dx + gw) % gw;
+                                rdU[j] = 0.5f; rdV[j] = 0.9f;
+                            }
+                    }
+                    break;
             }
             stagnantSteps = 0;
             lastPop = -1;
@@ -322,6 +345,8 @@ public static class CellularAutomatonDemo
             gh = Math.Max(1, H);
             grid = new int[gw * gh];
             next = new int[gw * gh];
+            rdU = new float[gw * gh]; rdV = new float[gw * gh];
+            rdU2 = new float[gw * gh]; rdV2 = new float[gw * gh];
             Seed();
             dirty = true;
         }
@@ -515,6 +540,34 @@ public static class CellularAutomatonDemo
                     if (on == 0) Seed();
                     return; // mutates grid in place
                 }
+
+                case Kind.ReactionDiffusion:
+                {
+                    // Gray-Scott. "Mitosis" params keep dividing — never settles.
+                    const float Du = 0.16f, Dv = 0.08f, F = 0.0367f, k = 0.0649f;
+                    for (int iter = 0; iter < 8; iter++)
+                    {
+                        for (int y = 0; y < gh; y++)
+                        {
+                            int ym = ((y - 1 + gh) % gh) * gw, yp = ((y + 1) % gh) * gw, y0 = y * gw;
+                            for (int x = 0; x < gw; x++)
+                            {
+                                int xm = (x - 1 + gw) % gw, xp = (x + 1) % gw;
+                                float uu = rdU[y0 + x], vv = rdV[y0 + x];
+                                float lapU = (rdU[y0 + xm] + rdU[y0 + xp] + rdU[ym + x] + rdU[yp + x]) * 0.2f
+                                           + (rdU[ym + xm] + rdU[ym + xp] + rdU[yp + xm] + rdU[yp + xp]) * 0.05f - uu;
+                                float lapV = (rdV[y0 + xm] + rdV[y0 + xp] + rdV[ym + x] + rdV[yp + x]) * 0.2f
+                                           + (rdV[ym + xm] + rdV[ym + xp] + rdV[yp + xm] + rdV[yp + xp]) * 0.05f - vv;
+                                float uvv = uu * vv * vv;
+                                rdU2[y0 + x] = uu + (Du * lapU - uvv + F * (1f - uu));
+                                rdV2[y0 + x] = vv + (Dv * lapV + uvv - (F + k) * vv);
+                            }
+                        }
+                        var tu = rdU; rdU = rdU2; rdU2 = tu;
+                        var tv = rdV; rdV = rdV2; rdV2 = tv;
+                    }
+                    return; // operates on float fields, not the int grid
+                }
             }
 
             var tmp = grid; grid = next; next = tmp;
@@ -585,11 +638,19 @@ public static class CellularAutomatonDemo
             var fgs = new DL.Rgb24[gw];
             var sb = new StringBuilder();
 
+            int rampLen = GlyphThemes[themeIndex].Ramp.Length;
             for (int cy = 0; cy < gh; cy++)
             {
                 for (int cx = 0; cx < gw; cx++)
                 {
-                    var (g, t) = CellVisual(grid[cy * gw + cx], rot);
+                    string? g; double t;
+                    if (kind == Kind.ReactionDiffusion)
+                    {
+                        float vv = rdV[cy * gw + cx];
+                        if (vv < 0.12f) { g = null; t = 0.0; }
+                        else { t = Math.Clamp(vv * 2.0, 0.0, 1.0); g = Ramp((int)(t * (rampLen - 1))); }
+                    }
+                    else (g, t) = CellVisual(grid[cy * gw + cx], rot);
                     glyphs[cx] = g;
                     fgs[cx] = g is null ? default : ColorAt(t);
                 }
@@ -667,6 +728,8 @@ public static class CellularAutomatonDemo
                 {
                     var k = Console.ReadKey(true);
                     if (k.Key == ConsoleKey.Escape) { running = false; break; }
+                    // In standalone screensaver mode, any key wakes/exits.
+                    if (screensaver) { running = false; break; }
                     char c = char.ToLowerInvariant(k.KeyChar);
                     if (k.Key == ConsoleKey.Spacebar || c == ' ') { paused = !paused; dirty = true; }
                     else if (c == 'q') { running = false; break; }
