@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
@@ -10,14 +11,14 @@ namespace Andy.Tui.Widgets
     {
         private readonly List<string> _lines = new();
         private int _scroll;
-        public DL.Rgb24 Border = new DL.Rgb24(80,80,80);
-        public DL.Rgb24 NumFg = new DL.Rgb24(120,120,120);
-        public DL.Rgb24 CodeFg = new DL.Rgb24(220,220,220);
-        public DL.Rgb24 Keyword = new DL.Rgb24(80,160,255);
-        public DL.Rgb24 Comment = new DL.Rgb24(120,160,120);
-        public DL.Rgb24 String = new DL.Rgb24(200,120,120);
-        public DL.Rgb24 Number = new DL.Rgb24(180,180,100);
-        public DL.Rgb24 Preproc = new DL.Rgb24(150,150,220);
+        public DL.Rgb24 Border = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+        public DL.Rgb24 NumFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.ForegroundMuted, new DL.Rgb24(120, 120, 120));
+        public DL.Rgb24 CodeFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        public DL.Rgb24 Keyword = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxKeyword, new DL.Rgb24(80, 160, 255));
+        public DL.Rgb24 Comment = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxComment, new DL.Rgb24(120, 160, 120));
+        public DL.Rgb24 String = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxString, new DL.Rgb24(200, 120, 120));
+        public DL.Rgb24 Number = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxNumber, new DL.Rgb24(180, 180, 100));
+        public DL.Rgb24 Preproc = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxPreproc, new DL.Rgb24(150, 150, 220));
         private static readonly HashSet<string> _keywords = new(StringComparer.Ordinal)
         {
             "using","namespace","class","struct","enum","interface",
@@ -31,7 +32,7 @@ namespace Andy.Tui.Widgets
         {
             _lines.Clear();
             if (text == null) return;
-            _lines.AddRange(text.Replace("\r\n","\n").Replace('\r','\n').Split('\n'));
+            _lines.AddRange(text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'));
             _scroll = 0;
         }
         public void ScrollLines(int delta) { _scroll = Math.Max(0, Math.Min(Math.Max(0, _lines.Count - 1), _scroll + delta)); }
@@ -40,18 +41,18 @@ namespace Andy.Tui.Widgets
 
         public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
-            int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
-            if (w<=0||h<=0) return;
-            b.PushClip(new DL.ClipPush(x,y,w,h));
-            b.DrawBorder(new DL.Border(x,y,w,h,"single", Border));
+            int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
+            if (w <= 0 || h <= 0) return;
+            b.PushClip(new DL.ClipPush(x, y, w, h));
+            b.DrawBorder(new DL.Border(x, y, w, h, "single", Border));
             int contentX = x + 1; int contentY = y + 1; int contentW = Math.Max(0, w - 2); int contentH = Math.Max(0, h - 2);
-            int numW = Math.Max(3, (int)Math.Log10(Math.Max(1,_lines.Count)) + 1) + 2; // gutter width
+            int numW = Math.Max(3, (int)Math.Log10(Math.Max(1, _lines.Count)) + 1) + 2; // gutter width
             int codeX = contentX + numW;
             int maxIndex = Math.Min(_lines.Count, _scroll + contentH);
             for (int i = _scroll, row = 0; i < maxIndex; i++, row++)
             {
                 string line = _lines[i];
-                string num = (i+1).ToString().PadLeft(numW-1);
+                string num = (i + 1).ToString().PadLeft(numW - 1);
                 b.DrawText(new DL.TextRun(contentX, contentY + row, num, NumFg, null, DL.CellAttrFlags.None));
                 // preprocessor lines
                 if (line.TrimStart().StartsWith("#"))
@@ -127,13 +128,13 @@ namespace Andy.Tui.Widgets
                 // number
                 if (char.IsDigit(line[i]))
                 {
-                    int j = i + 1; while (j < line.Length && (char.IsDigit(line[j]) || line[j]=='.' || char.IsLetter(line[j]))) j++;
+                    int j = i + 1; while (j < line.Length && (char.IsDigit(line[j]) || line[j] == '.' || char.IsLetter(line[j]))) j++;
                     yield return (line.Substring(i, j - i), Tok.Number); i = j; continue;
                 }
                 // identifier
                 if (char.IsLetter(line[i]) || line[i] == '_')
                 {
-                    int j = i + 1; while (j < line.Length && (char.IsLetterOrDigit(line[j]) || line[j]=='_')) j++;
+                    int j = i + 1; while (j < line.Length && (char.IsLetterOrDigit(line[j]) || line[j] == '_')) j++;
                     string ident = line.Substring(i, j - i);
                     yield return (ident, _keywords.Contains(ident) ? Tok.Keyword : Tok.Plain);
                     i = j; continue;

@@ -1,14 +1,15 @@
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
 public sealed class Panel
 {
     public string? Title { get; private set; }
-    public DL.Rgb24 Bg { get; private set; } = new DL.Rgb24(12, 12, 12);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(100, 100, 100);
-    public DL.Rgb24 TitleColor { get; private set; } = new DL.Rgb24(200, 200, 200);
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+    public DL.Rgb24 TitleColor { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(200, 200, 200));
 
     public void SetTitle(string? title) => Title = title;
 

@@ -8,6 +8,12 @@ public abstract record Selector(Specificity Specificity)
     public abstract bool Matches(Node node);
 }
 
+/// <summary>The universal selector <c>*</c> — matches every node, specificity 0.</summary>
+public sealed record UniversalSelector() : Selector(new Specificity(0, 0, 0))
+{
+    public override bool Matches(Node node) => true;
+}
+
 public sealed record PseudoClassSelector(string Name) : Selector(new Specificity(0, 1, 0))
 {
     public override bool Matches(Node node)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
@@ -11,10 +12,10 @@ namespace Andy.Tui.Widgets
         private readonly HashSet<int> _selected = new();
         private int _scroll;
         private int _cursor;
-        public DL.Rgb24 Border = new DL.Rgb24(80,80,80);
-        public DL.Rgb24 ItemFg = new DL.Rgb24(220,220,220);
-        public DL.Rgb24 SelFg = new DL.Rgb24(0,0,0);
-        public DL.Rgb24 SelBg = new DL.Rgb24(200,200,80);
+        public DL.Rgb24 Border = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+        public DL.Rgb24 ItemFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        public DL.Rgb24 SelFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.AccentForeground, new DL.Rgb24(0, 0, 0));
+        public DL.Rgb24 SelBg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(200, 200, 80));
 
         public void SetItems(IEnumerable<string> items)
         { _items.Clear(); if (items != null) _items.AddRange(items); _scroll = 0; _cursor = 0; _selected.Clear(); }
@@ -65,7 +66,7 @@ namespace Andy.Tui.Widgets
                 var bg = isSel ? SelBg : (DL.Rgb24?)null;
                 string text = _items[i];
                 if (text.Length > contentW) text = text.Substring(0, contentW);
-                builder.DrawRect(new DL.Rect(contentX, contentY + row, contentW, 1, bg ?? new DL.Rgb24(0,0,0)));
+                builder.DrawRect(new DL.Rect(contentX, contentY + row, contentW, 1, bg ?? new DL.Rgb24(0, 0, 0)));
                 builder.DrawText(new DL.TextRun(contentX, contentY + row, text, fg, bg, isSel ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None));
             }
             builder.Pop();

@@ -1,5 +1,6 @@
 using System;
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
@@ -8,22 +9,22 @@ namespace Andy.Tui.Widgets
     {
         private string[] _a = Array.Empty<string>();
         private string[] _b = Array.Empty<string>();
-        public DL.Rgb24 Border = new DL.Rgb24(80,80,80);
-        private DL.Rgb24 _fg = new DL.Rgb24(220,220,220);
-        private DL.Rgb24 _addBg = new DL.Rgb24(30,70,30);
-        private DL.Rgb24 _delBg = new DL.Rgb24(80,30,30);
+        public DL.Rgb24 Border = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+        private DL.Rgb24 _fg = new DL.Rgb24(220, 220, 220);
+        private DL.Rgb24 _addBg = new DL.Rgb24(30, 70, 30);
+        private DL.Rgb24 _delBg = new DL.Rgb24(80, 30, 30);
 
-        public void SetLeft(string text) => _a = (text ?? string.Empty).Replace("\r\n","\n").Replace('\r','\n').Split('\n');
-        public void SetRight(string text) => _b = (text ?? string.Empty).Replace("\r\n","\n").Replace('\r','\n').Split('\n');
+        public void SetLeft(string text) => _a = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        public void SetRight(string text) => _b = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
 
         public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
-            int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
-            if (w<=0||h<=0) return;
-            b.PushClip(new DL.ClipPush(x,y,w,h));
-            b.DrawBorder(new DL.Border(x,y,w,h,"single", Border));
+            int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
+            if (w <= 0 || h <= 0) return;
+            b.PushClip(new DL.ClipPush(x, y, w, h));
+            b.DrawBorder(new DL.Border(x, y, w, h, "single", Border));
             int contentX = x + 1; int contentY = y + 1; int contentW = Math.Max(0, w - 2); int contentH = Math.Max(0, h - 2);
-            int mid = contentX + contentW/2;
+            int mid = contentX + contentW / 2;
             int rows = Math.Min(contentH, Math.Max(_a.Length, _b.Length));
             for (int i = 0; i < rows; i++)
             {

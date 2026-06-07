@@ -1,5 +1,6 @@
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
@@ -8,10 +9,10 @@ public sealed class ListBox
     private readonly List<string> _items = new();
     public int SelectedIndex { get; private set; } = -1;
     private int _firstVisibleIndex = 0;
-    public DL.Rgb24 Fg { get; private set; } = new DL.Rgb24(220, 220, 220);
-    public DL.Rgb24 Bg { get; private set; } = new DL.Rgb24(20, 20, 20);
-    public DL.Rgb24 SelectedBg { get; private set; } = new DL.Rgb24(60, 60, 100);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(100, 100, 100);
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
+    public DL.Rgb24 SelectedBg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSelected, new DL.Rgb24(60, 60, 100));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
 
     public void SetItems(IEnumerable<string> items)
     {

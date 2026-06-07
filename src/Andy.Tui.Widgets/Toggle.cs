@@ -1,5 +1,6 @@
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
@@ -8,10 +9,10 @@ public sealed class Toggle
     public bool Checked { get; private set; }
     public string? Label { get; private set; }
     public bool Focused { get; private set; }
-    public DL.Rgb24 Fg { get; private set; } = new DL.Rgb24(220, 220, 220);
-    public DL.Rgb24 BgOn { get; private set; } = new DL.Rgb24(60, 120, 70);
-    public DL.Rgb24 BgOff { get; private set; } = new DL.Rgb24(80, 80, 80);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(100, 100, 100);
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+    public DL.Rgb24 BgOn { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Success, new DL.Rgb24(60, 120, 70));
+    public DL.Rgb24 BgOff { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.ForegroundDisabled, new DL.Rgb24(80, 80, 80));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
 
     public Toggle(bool initial = false, string? label = null)
     {

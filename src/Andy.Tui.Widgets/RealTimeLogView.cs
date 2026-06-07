@@ -1,4 +1,5 @@
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -9,9 +10,9 @@ public sealed class RealTimeLogView
     private int _firstVisibleLine;
     private bool _followTail = true;
 
-    public DL.Rgb24 Bg { get; private set; } = new DL.Rgb24(8, 8, 8);
-    public DL.Rgb24 Fg { get; private set; } = new DL.Rgb24(220, 220, 220);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(70, 70, 70);
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(8, 8, 8));
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(70, 70, 70));
 
     public void AppendLine(string line)
     {

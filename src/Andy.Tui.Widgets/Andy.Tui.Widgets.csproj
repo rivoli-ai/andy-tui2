@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
     <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
     <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" />
   </ItemGroup>
 

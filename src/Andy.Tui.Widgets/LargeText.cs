@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -19,8 +20,8 @@ public sealed class LargeText
     private int _scale = 1;
     private int _spacing = 1; // columns between glyphs (unscaled)
 
-    public DL.Rgb24 Background { get; set; } = new(0, 0, 0);
-    public DL.Rgb24 Foreground { get; set; } = new(230, 230, 230);
+    public DL.Rgb24 Background { get; set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new(0, 0, 0));
+    public DL.Rgb24 Foreground { get; set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(230, 230, 230));
 
     public void SetText(string? text) => _text = text ?? string.Empty;
     public void SetStyle(LargeTextStyle style) => _style = style;

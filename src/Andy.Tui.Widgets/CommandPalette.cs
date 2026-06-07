@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -15,11 +16,11 @@ public sealed class CommandPalette
     private readonly HashSet<string> _pinned = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _recent = new();
 
-    public DL.Rgb24 OverlayBg { get; private set; } = new(0, 0, 0);
-    public DL.Rgb24 PanelBg { get; private set; } = new(20, 20, 20);
-    public DL.Rgb24 PanelBorder { get; private set; } = new(90, 90, 90);
-    public DL.Rgb24 TextFg { get; private set; } = new(220, 220, 220);
-    public DL.Rgb24 Accent { get; private set; } = new(180, 180, 220);
+    public DL.Rgb24 OverlayBg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new(0, 0, 0));
+    public DL.Rgb24 PanelBg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSunken, new(20, 20, 20));
+    public DL.Rgb24 PanelBorder { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(90, 90, 90));
+    public DL.Rgb24 TextFg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
+    public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(180, 180, 220));
 
     public void SetCommands(IEnumerable<string> commands)
     {

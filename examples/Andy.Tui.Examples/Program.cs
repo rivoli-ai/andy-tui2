@@ -243,7 +243,8 @@ class Program
                 "62) Resize Handle",
                 "63) FIGlet Viewer",
                 "64) Hacker News Reader",
-                "65) Transparent Background"
+                "65) Transparent Background",
+                "66) Themes Showcase (all themes)"
             };
 
             // Two-column layout
@@ -332,6 +333,7 @@ class Program
                 case "63": await FigletViewerDemo.Run(viewport, caps); break;
                 case "64": await HackerNewsDemo.Run(viewport, caps); break;
                 case "65": await TransparentBackgroundDemo.Run(viewport, caps); break;
+                case "66": await ThemesShowcaseDemo.Run(viewport, caps); break;
             }
         }
     }

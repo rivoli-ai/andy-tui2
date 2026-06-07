@@ -83,7 +83,7 @@ public static class CssParser
                 current = current is null ? part : new AndSelector(current, part);
             }
         }
-        return current ?? new TypeSelector("*");
+        return current ?? new UniversalSelector();
     }
 
     private static IEnumerable<Selector> ParseSimpleSequence(string token)
