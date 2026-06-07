@@ -249,36 +249,92 @@ public sealed class TtyCompositor : ICompositor
 
     private static void DrawText(ref CellGrid grid, (int x, int y, int w, int h) clip, TextRun t)
     {
-        int x = Math.Max(clip.x, t.X);
         int y = t.Y;
         if (y < clip.y || y >= clip.y + clip.h) return;
-        var start = x - t.X;
-        if (start < 0) start = 0;
-        for (int i = start; i < t.Content.Length && x < clip.x + clip.w; i++)
+        int clipRight = clip.x + clip.w;
+
+        string s = t.Content;
+        int x = t.X;
+        int lastLeadX = int.MinValue; // column of the last lead cell written on this row
+        int i = 0;
+        while (i < s.Length)
         {
-            var ch = t.Content[i];
-            int width = GetCharDisplayWidth(ch);
-            // Edge policy: if double-width at last column, replace with placeholder
-            if (width == 2 && x == clip.x + clip.w - 1)
+            // Decode one Unicode scalar, combining a surrogate pair into one grapheme.
+            char c0 = s[i];
+            int codePoint;
+            string grapheme;
+            if (char.IsHighSurrogate(c0) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
+            {
+                codePoint = char.ConvertToUtf32(c0, s[i + 1]);
+                grapheme = s.Substring(i, 2);
+                i += 2;
+            }
+            else
+            {
+                codePoint = c0;
+                grapheme = c0.ToString();
+                i += 1;
+            }
+
+            // Zero-width combiners (variation selectors, ZWJ, combining marks) attach to
+            // the preceding glyph rather than consuming a column, so emoji presentation
+            // sequences (e.g. "\U0001F5A5️") and ZWJ sequences render as one cell.
+            if (IsZeroWidth(codePoint))
+            {
+                if (lastLeadX >= clip.x && lastLeadX < clipRight)
+                {
+                    ref var lead = ref grid.GetRef(lastLeadX, y);
+                    lead = lead with { Grapheme = (lead.Grapheme ?? "") + grapheme };
+                }
+                continue;
+            }
+
+            int width = IsWideCodePoint(codePoint) ? 2 : 1;
+
+            // Glyph wholly left of the clip: advance without drawing.
+            if (x + width <= clip.x) { x += width; continue; }
+            if (x >= clipRight) break;
+
+            // Edge policy: a double-width glyph that would overflow the right edge is
+            // replaced with a single-cell placeholder.
+            if (width == 2 && x == clipRight - 1)
             {
                 var bgEdge = t.Bg ?? grid[x, y].Bg;
                 grid[x, y] = new Cell("?", 1, t.Fg, bgEdge, t.Attrs);
+                lastLeadX = x;
                 x += 1;
                 continue;
             }
 
-            var bg = t.Bg ?? grid[x, y].Bg;
-            grid[x, y] = new Cell(ch.ToString(), (byte)Math.Min(width, 1), t.Fg, bg, t.Attrs);
-            x += 1;
-            // Note: not filling trailing cell for width=2 in MVP
+            // A wide glyph straddling the left clip edge is dropped (no half glyph).
+            if (x >= clip.x)
+            {
+                var bg = t.Bg ?? grid[x, y].Bg;
+                grid[x, y] = new Cell(grapheme, (byte)width, t.Fg, bg, t.Attrs);
+                lastLeadX = x;
+                if (width == 2 && x + 1 < clipRight)
+                {
+                    // Continuation cell: an empty grapheme emits nothing, so the wide
+                    // glyph owns both columns. Share colors with the lead cell.
+                    var bg2 = t.Bg ?? grid[x + 1, y].Bg;
+                    grid[x + 1, y] = new Cell("", 0, t.Fg, bg2, t.Attrs);
+                }
+            }
+            x += width;
         }
     }
 
-    private static int GetCharDisplayWidth(char ch)
+    private static bool IsZeroWidth(int codePoint)
     {
-        int codePoint = ch;
-        // Basic BMP approximation for wide chars; surrogate pairs not handled in MVP
-        return IsWideCodePoint(codePoint) ? 2 : 1;
+        return
+            codePoint == 0x200D || codePoint == 0x200C ||      // ZWJ / ZWNJ
+            (codePoint >= 0xFE00 && codePoint <= 0xFE0F) ||    // variation selectors
+            (codePoint >= 0x0300 && codePoint <= 0x036F) ||    // combining diacritical marks
+            (codePoint >= 0x1AB0 && codePoint <= 0x1AFF) ||
+            (codePoint >= 0x1DC0 && codePoint <= 0x1DFF) ||
+            (codePoint >= 0x20D0 && codePoint <= 0x20FF) ||
+            (codePoint >= 0xFE20 && codePoint <= 0xFE2F) ||
+            (codePoint >= 0xE0100 && codePoint <= 0xE01EF);    // variation selectors supplement
     }
 
     private static bool IsWideCodePoint(int codePoint)
@@ -294,7 +350,9 @@ public sealed class TtyCompositor : ICompositor
             (codePoint >= 0xFF00 && codePoint <= 0xFF60) ||
             (codePoint >= 0xFFE0 && codePoint <= 0xFFE6) ||
             (codePoint >= 0x1F300 && codePoint <= 0x1F64F) ||
+            (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // transport & map symbols
             (codePoint >= 0x1F900 && codePoint <= 0x1F9FF) ||
+            (codePoint >= 0x1FA00 && codePoint <= 0x1FAFF) || // symbols & pictographs extended-A
             (codePoint >= 0x20000 && codePoint <= 0x3FFFD);
     }
 }
