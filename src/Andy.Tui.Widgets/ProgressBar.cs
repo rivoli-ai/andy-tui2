@@ -1,5 +1,6 @@
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
@@ -7,9 +8,9 @@ public sealed class ProgressBar
 {
     private double _value; // 0..1
     public double Value { get => _value; set => _value = Math.Clamp(value, 0.0, 1.0); }
-    public DL.Rgb24 Bg { get; private set; } = new DL.Rgb24(40, 40, 40);
-    public DL.Rgb24 Fill { get; private set; } = new DL.Rgb24(60, 140, 220);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(100, 100, 100);
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(40, 40, 40));
+    public DL.Rgb24 Fill { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Info, new DL.Rgb24(60, 140, 220));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
 
     public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {

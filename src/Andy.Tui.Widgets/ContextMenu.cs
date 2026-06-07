@@ -1,4 +1,5 @@
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -8,10 +9,10 @@ public sealed class ContextMenu
     private Menu _menu = new();
     private int _selectedIndex;
 
-    public DL.Rgb24 Bg { get; private set; } = new(20, 20, 20);
-    public DL.Rgb24 Fg { get; private set; } = new(220, 220, 220);
-    public DL.Rgb24 SelBg { get; private set; } = new(60, 60, 90);
-    public DL.Rgb24 Border { get; private set; } = new(100, 100, 100);
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSunken, new(20, 20, 20));
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
+    public DL.Rgb24 SelBg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSelected, new(60, 60, 90));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(100, 100, 100));
 
     public void SetMenu(Menu menu) => _menu = menu;
     public void SetSelectedIndex(int index) => _selectedIndex = Math.Max(0, Math.Min(_menu.Items.Count - 1, index));

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
@@ -12,10 +13,10 @@ public sealed class Select
     private int _highlightIndex;
     private bool _isOpen;
 
-    public DL.Rgb24 Bg { get; private set; } = new(12, 12, 12);
-    public DL.Rgb24 Fg { get; private set; } = new(220, 220, 220);
-    public DL.Rgb24 Border { get; private set; } = new(90, 90, 90);
-    public DL.Rgb24 Accent { get; private set; } = new(180, 180, 220);
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(90, 90, 90));
+    public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(180, 180, 220));
 
     public void SetItems(string[] items)
     {

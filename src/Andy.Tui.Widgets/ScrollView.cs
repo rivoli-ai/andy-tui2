@@ -1,4 +1,5 @@
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -7,9 +8,9 @@ public sealed class ScrollView
 {
     public int ScrollY { get; private set; }
     public string Content { get; private set; } = string.Empty;
-    public DL.Rgb24 Fg { get; private set; } = new DL.Rgb24(220, 220, 220);
-    public DL.Rgb24 Bg { get; private set; } = new DL.Rgb24(10, 10, 10);
-    public DL.Rgb24 Border { get; private set; } = new DL.Rgb24(100, 100, 100);
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(10, 10, 10));
+    public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
 
     public void SetContent(string content) => Content = content;
     public void SetScrollY(int y) => ScrollY = Math.Max(0, y);

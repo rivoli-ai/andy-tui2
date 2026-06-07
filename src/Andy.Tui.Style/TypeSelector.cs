@@ -5,5 +5,5 @@ namespace Andy.Tui.Style;
 /// </summary>
 public sealed record TypeSelector(string Type) : Selector(new Specificity(0, 0, 1))
 {
-    public override bool Matches(Node node) => string.Equals(node.Type, Type, StringComparison.OrdinalIgnoreCase);
+    public override bool Matches(Node node) => Type == "*" || string.Equals(node.Type, Type, StringComparison.OrdinalIgnoreCase);
 }

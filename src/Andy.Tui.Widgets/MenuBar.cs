@@ -1,4 +1,5 @@
 using DL = Andy.Tui.DisplayList;
+using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
@@ -47,9 +48,9 @@ public sealed class MenuBar
 {
     private readonly List<(string Title, Menu Menu)> _menus = new();
     public IReadOnlyList<(string Title, Menu Menu)> Menus => _menus;
-    public DL.Rgb24 Fg { get; private set; } = new(220, 220, 220);
-    public DL.Rgb24 Bg { get; private set; } = new(30, 30, 30);
-    public DL.Rgb24 Accent { get; private set; } = new(200, 200, 80);
+    public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
+    public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Surface, new(30, 30, 30));
+    public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(200, 200, 80));
 
     public MenuBar Add(string title, Menu menu)
     { _menus.Add((title, menu)); return this; }
