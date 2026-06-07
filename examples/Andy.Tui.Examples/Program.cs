@@ -244,7 +244,8 @@ class Program
                 "63) FIGlet Viewer",
                 "64) Hacker News Reader",
                 "65) Transparent Background",
-                "66) Themes Showcase (all themes)"
+                "66) Themes Showcase (all themes)",
+                "67) Cellular Automaton (screensaver)"
             };
 
             // Two-column layout
@@ -334,6 +335,7 @@ class Program
                 case "64": await HackerNewsDemo.Run(viewport, caps); break;
                 case "65": await TransparentBackgroundDemo.Run(viewport, caps); break;
                 case "66": await ThemesShowcaseDemo.Run(viewport, caps); break;
+                case "67": await CellularAutomatonDemo.Run(viewport, caps); break;
             }
         }
     }
