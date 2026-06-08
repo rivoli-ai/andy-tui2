@@ -18,11 +18,14 @@ namespace Andy.Tui.Widgets
         private DL.Rgb24 _h2Color = new DL.Rgb24(150,220,150);  // Green for H2
         private DL.Rgb24 _h3Color = new DL.Rgb24(255,180,100);  // Orange for H3
         private DL.Rgb24 _listColor = new DL.Rgb24(255,150,150); // Light red for list markers
+        private DL.Rgb24 _inlineCodeColor = new DL.Rgb24(220,180,120); // inline `code`
 
         public void SetText(string md) => _md = md ?? string.Empty;
         public void SetColors(DL.Rgb24 fg, DL.Rgb24 bg, DL.Rgb24 accent) { _fg = fg; _bg = bg; _accent = accent; }
         public void SetHeaderColors(DL.Rgb24 h1, DL.Rgb24 h2, DL.Rgb24 h3) { _h1Color = h1; _h2Color = h2; _h3Color = h3; }
         public void SetListColor(DL.Rgb24 listColor) { _listColor = listColor; }
+        /// <summary>Color used for inline `code` spans (a distinct color, never an underline).</summary>
+        public void SetInlineCodeColor(DL.Rgb24 c) { _inlineCodeColor = c; }
 
         private static readonly Regex Bold = new Regex(@"\*\*(.+?)\*\*", RegexOptions.Compiled);
         private static readonly Regex Italic = new Regex(@"\*(.+?)\*", RegexOptions.Compiled);
@@ -46,6 +49,7 @@ namespace Andy.Tui.Widgets
                 if (cy >= y + h) break;
                 string text = line;
                 DL.CellAttrFlags attrs = DL.CellAttrFlags.None;
+                bool codeMode = false; // inside an inline `code` span
                 var color = _fg;
                 int indent = 0;
                 string listMarker = "";
@@ -125,9 +129,9 @@ namespace Andy.Tui.Widgets
                     {
                         if (segmentCx >= x + w) break;
                         if (ch == '\u0001') { attrs ^= DL.CellAttrFlags.Bold; continue; }
-                        if (ch == '\u0002') { attrs ^= DL.CellAttrFlags.Underline; continue; }
-                        if (ch == '\u0003') { /* code */ attrs ^= DL.CellAttrFlags.Underline; continue; }
-                        b.DrawText(new DL.TextRun(segmentCx++, cy, ch.ToString(), color, _bg, attrs));
+                        if (ch == '\u0002') { /* italic: color, not underline */ continue; }
+                        if (ch == '\u0003') { codeMode = !codeMode; continue; }
+                        b.DrawText(new DL.TextRun(segmentCx++, cy, ch.ToString(), codeMode ? _inlineCodeColor : color, _bg, attrs));
                     }
                     
                     pos = segmentEnd;
