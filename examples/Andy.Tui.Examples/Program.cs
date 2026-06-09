@@ -26,6 +26,10 @@ class Program
             case "emoji":
                 await EmojiShowcaseDemo.Run(viewport, caps);
                 return;
+            case "waterfall":
+            case "hn-waterfall":
+                await WaterfallDemo.Run(viewport, caps);
+                return;
         }
 
         await RunMainMenu(viewport, caps);
@@ -261,7 +265,8 @@ class Program
                 "65) Transparent Background",
                 "66) Themes Showcase (all themes)",
                 "67) Cellular Automaton (screensaver)",
-                "68) Emoji Showcase"
+                "68) Emoji Showcase",
+                "69) Hacker News Waterfall"
             };
 
             // Two-column layout
@@ -353,6 +358,7 @@ class Program
                 case "66": await ThemesShowcaseDemo.Run(viewport, caps); break;
                 case "67": await CellularAutomatonDemo.Run(viewport, caps); break;
                 case "68": await EmojiShowcaseDemo.Run(viewport, caps); break;
+                case "69": await WaterfallDemo.Run(viewport, caps); break;
             }
         }
     }
