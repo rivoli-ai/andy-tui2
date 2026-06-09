@@ -13,8 +13,13 @@ namespace Andy.Tui.Examples.Demos;
 /// <summary>
 /// ASCII "Hacker News Waterfall" — a calm, screensaver-like flow of blue water
 /// characters tumbling down a rocky, grass-lined fall, carrying the live Hacker
-/// News front page. A terminal reproduction of Peter Trizuliak's experiment
-/// (https://trizuliak.com/experiments/hacker-news-waterfall).
+/// News front page.
+///
+/// This is a terminal reproduction. All credit for the original concept and the
+/// web version goes to Peter Trizuliak:
+///   Original experiment: https://trizuliak.com/experiments/hacker-news-waterfall
+///   Author:              https://trizuliak.com
+///   Announced on Reddit: https://www.reddit.com/r/ASCII/comments/1u147ln/i_made_an_ascii_waterfall_carrying_front_page/
 ///
 /// The flow comes from the original's trick: each water column has a hashed phase,
 /// and a cell's brightness band = (depth - phase) mod G. As the scroll depth grows
