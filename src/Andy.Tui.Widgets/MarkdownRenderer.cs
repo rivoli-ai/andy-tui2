@@ -27,9 +27,19 @@ namespace Andy.Tui.Widgets
         /// <summary>Color used for inline `code` spans (a distinct color, never an underline).</summary>
         public void SetInlineCodeColor(DL.Rgb24 c) { _inlineCodeColor = c; }
 
-        private static readonly Regex Bold = new Regex(@"\*\*(.+?)\*\*", RegexOptions.Compiled);
-        private static readonly Regex Italic = new Regex(@"\*(.+?)\*", RegexOptions.Compiled);
-        private static readonly Regex Code = new Regex(@"`(.+?)`", RegexOptions.Compiled);
+        /// <summary>
+        /// A contiguous run of text that shares a single set of cell attributes and a
+        /// single foreground decision (normal vs inline-code color). Inline parsing
+        /// produces a fresh list of these per line, so emphasis state is physically
+        /// unable to leak past the end of a line or across a wrapped segment.
+        /// </summary>
+        private readonly struct Span
+        {
+            public readonly string Text;
+            public readonly DL.CellAttrFlags Attrs;
+            public readonly bool Code;
+            public Span(string text, DL.CellAttrFlags attrs, bool code) { Text = text; Attrs = attrs; Code = code; }
+        }
 
         public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
@@ -38,7 +48,7 @@ namespace Andy.Tui.Widgets
             b.PushClip(new DL.ClipPush(x,y,w,h));
             b.DrawRect(new DL.Rect(x,y,w,h,_bg));
             int cy = y;
-            
+
             var lines = _md.Replace("\r\n","\n").Replace('\r','\n').Split('\n');
             var processedLines = ProcessUnderlinedHeaders(lines);
             var spacedLines = AddParagraphSpacing(processedLines);
@@ -49,7 +59,7 @@ namespace Andy.Tui.Widgets
                 if (cy >= y + h) break;
                 string text = line;
                 DL.CellAttrFlags attrs = DL.CellAttrFlags.None;
-                bool codeMode = false; // inside an inline `code` span
+                bool isHeader = false; // header lines are uniformly styled, not inline-parsed
                 var color = _fg;
                 int indent = 0;
                 string listMarker = "";
@@ -77,9 +87,9 @@ namespace Andy.Tui.Widgets
                 }
 
                 // Headers with distinct colors
-                if (text.StartsWith("### ")) { text = text.Substring(4); attrs |= DL.CellAttrFlags.Bold; color = _h3Color; }
-                else if (text.StartsWith("## ")) { text = text.Substring(3); attrs |= DL.CellAttrFlags.Bold; color = _h2Color; }
-                else if (text.StartsWith("# ")) { text = text.Substring(2); attrs |= DL.CellAttrFlags.Bold; color = _h1Color; }
+                if (text.StartsWith("### ")) { text = text.Substring(4); attrs |= DL.CellAttrFlags.Bold; color = _h3Color; isHeader = true; }
+                else if (text.StartsWith("## ")) { text = text.Substring(3); attrs |= DL.CellAttrFlags.Bold; color = _h2Color; isHeader = true; }
+                else if (text.StartsWith("# ")) { text = text.Substring(2); attrs |= DL.CellAttrFlags.Bold; color = _h1Color; isHeader = true; }
                 // Unordered lists (- or * bullet points)
                 else if (text.StartsWith("- ")) { text = text.Substring(2); listMarker = "• "; indent = 2; }
                 else if (text.StartsWith("* ")) { text = text.Substring(2); listMarker = "★ "; indent = 2; }
@@ -94,10 +104,23 @@ namespace Andy.Tui.Widgets
                         indent = listMarker.Length;
                     }
                 }
-                // inline transforms: bold/italic/code
-                string rendered = Code.Replace(Italic.Replace(Bold.Replace(text, "$1"), "$1"), "$1");
+
+                // Parse inline emphasis/strong/code into styled spans. All emphasis state
+                // lives in this list and is rebuilt for every line, so a span can never
+                // leak onto a later line. An unclosed marker is emitted as literal text.
+                List<Span> spans;
+                if (isHeader)
+                {
+                    // A heading is uniformly styled; do not re-parse inline markers inside it.
+                    spans = new List<Span> { new Span(text, attrs, false) };
+                }
+                else
+                {
+                    spans = ParseInline(text, attrs);
+                }
+
                 int cx = x;
-                
+
                 // Render list marker first if present (with list color and bold)
                 if (!string.IsNullOrEmpty(listMarker))
                 {
@@ -107,45 +130,192 @@ namespace Andy.Tui.Widgets
                         b.DrawText(new DL.TextRun(cx++, cy, ch.ToString(), _listColor, _bg, DL.CellAttrFlags.Bold));
                     }
                 }
-                
-                // Render the main text content with proper wrapping
-                if (string.IsNullOrEmpty(rendered))
+
+                // Render the main text content with proper wrapping.
+                int totalChars = spans.Sum(s => s.Text.Length);
+                if (totalChars == 0)
                 {
                     cy++;
                     continue;
                 }
-                
-                // Handle text wrapping
+
                 int availableWidth = w - indent;
-                for (int pos = 0; pos < rendered.Length; )
+                if (availableWidth < 1) availableWidth = 1;
+                int colInLine = 0; // visual column within the current (possibly wrapped) row
+                foreach (var span in spans)
                 {
-                    if (cy >= y + h) break;
-                    
-                    int segmentEnd = Math.Min(pos + availableWidth, rendered.Length);
-                    string segment = rendered.Substring(pos, segmentEnd - pos);
-                    
-                    int segmentCx = cx;
-                    foreach (char ch in segment)
+                    var spanColor = span.Code ? _inlineCodeColor : color;
+                    foreach (char ch in span.Text)
                     {
-                        if (segmentCx >= x + w) break;
-                        if (ch == '\u0001') { attrs ^= DL.CellAttrFlags.Bold; continue; }
-                        if (ch == '\u0002') { /* italic: color, not underline */ continue; }
-                        if (ch == '\u0003') { codeMode = !codeMode; continue; }
-                        b.DrawText(new DL.TextRun(segmentCx++, cy, ch.ToString(), codeMode ? _inlineCodeColor : color, _bg, attrs));
-                    }
-                    
-                    pos = segmentEnd;
-                    if (pos < rendered.Length)
-                    {
-                        cy++;
-                        cx = x + indent; // Reset to indent for wrapped lines
+                        if (cy >= y + h) goto doneLine;
+                        if (colInLine >= availableWidth)
+                        {
+                            // Wrap to next visual row, re-applying the list indent.
+                            cy++;
+                            if (cy >= y + h) goto doneLine;
+                            cx = x + indent;
+                            colInLine = 0;
+                        }
+                        if (cx < x + w)
+                            b.DrawText(new DL.TextRun(cx, cy, ch.ToString(), spanColor, _bg, span.Attrs));
+                        cx++;
+                        colInLine++;
                     }
                 }
+                doneLine:
                 cy++;
             }
             b.Pop();
         }
-        
+
+        /// <summary>
+        /// Tokenizes a single line of text into styled spans, honoring `**`/`__` (strong),
+        /// `*`/`_` (emphasis) and `` ` `` (inline code). Only the text strictly between a
+        /// matched pair of markers receives the corresponding attribute; surrounding text
+        /// keeps <paramref name="baseAttrs"/>. A marker with no matching close on the same
+        /// line is treated as literal text, so emphasis can never spill onto the rest of the
+        /// line or onto following lines.
+        /// </summary>
+        private static List<Span> ParseInline(string text, DL.CellAttrFlags baseAttrs)
+        {
+            var spans = new List<Span>();
+            if (string.IsNullOrEmpty(text))
+                return spans;
+
+            var buf = new System.Text.StringBuilder();
+            bool bold = false;
+            bool italic = false;
+            // Current foreground/attr context (excluding inline code, which is a separate flag).
+            DL.CellAttrFlags CurrentAttrs() => baseAttrs | (bold ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None);
+
+            void Flush(bool code)
+            {
+                if (buf.Length == 0) return;
+                spans.Add(new Span(buf.ToString(), CurrentAttrs(), code));
+                buf.Clear();
+            }
+
+            int i = 0;
+            int n = text.Length;
+            while (i < n)
+            {
+                char c = text[i];
+
+                // Inline code: spans from the next backtick to the following backtick.
+                if (c == '`')
+                {
+                    int close = text.IndexOf('`', i + 1);
+                    if (close > i)
+                    {
+                        Flush(false);
+                        string inner = text.Substring(i + 1, close - i - 1);
+                        // Inline code is rendered verbatim; markers inside are literal.
+                        spans.Add(new Span(inner, baseAttrs, true));
+                        i = close + 1;
+                        continue;
+                    }
+                    // Unmatched backtick: literal.
+                    buf.Append(c);
+                    i++;
+                    continue;
+                }
+
+                // Strong: ** or __ . Requires a matching close on this line.
+                if ((c == '*' || c == '_') && i + 1 < n && text[i + 1] == c)
+                {
+                    char marker = c;
+                    if (!bold)
+                    {
+                        if (HasClosingDouble(text, i + 2, marker))
+                        {
+                            Flush(false);
+                            bold = true;
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        // Close the open strong span.
+                        Flush(false);
+                        bold = false;
+                        i += 2;
+                        continue;
+                    }
+                    // No close available: literal.
+                    buf.Append(marker);
+                    buf.Append(marker);
+                    i += 2;
+                    continue;
+                }
+
+                // Emphasis: single * or _ . Requires a matching close on this line.
+                if (c == '*' || c == '_')
+                {
+                    char marker = c;
+                    if (!italic)
+                    {
+                        if (HasClosingSingle(text, i + 1, marker))
+                        {
+                            Flush(false);
+                            italic = true;
+                            i++;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        Flush(false);
+                        italic = false;
+                        i++;
+                        continue;
+                    }
+                    // No close available: literal.
+                    buf.Append(marker);
+                    i++;
+                    continue;
+                }
+
+                buf.Append(c);
+                i++;
+            }
+
+            // End of line: emit whatever is buffered. Any still-open emphasis simply ends
+            // here; because state is local it cannot affect the next line.
+            Flush(false);
+            return spans;
+        }
+
+        // True if a matching double marker (e.g. "**") exists at or after start, with at
+        // least one character of content between the open and close.
+        private static bool HasClosingDouble(string text, int start, char marker)
+        {
+            for (int i = start; i + 1 < text.Length; i++)
+            {
+                if (text[i] == marker && text[i + 1] == marker)
+                {
+                    if (i > start) return true; // non-empty content found
+                    // Empty content (e.g. "****"): not a valid close here. Skip this
+                    // adjacent marker pair and keep looking for a real, non-empty close.
+                    i++; // consume the second marker char; loop's i++ skips the first
+                    continue;
+                }
+            }
+            return false;
+        }
+
+        // True if a matching single marker exists at or after start (not part of a double
+        // marker), with at least one character of content between the open and close.
+        private static bool HasClosingSingle(string text, int start, char marker)
+        {
+            for (int i = start; i < text.Length; i++)
+            {
+                if (text[i] == marker)
+                    return i > start; // require non-empty content
+            }
+            return false;
+        }
+
         private static List<string> ProcessUnderlinedHeaders(string[] lines)
         {
             var result = new List<string>();
