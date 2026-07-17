@@ -64,4 +64,37 @@ public class AppLoopTests
         var rendered = await task;
         Assert.Equal(3, rendered);
     }
+
+    [Fact]
+    public async Task Resize_Changes_Next_Rendered_Frame_Size()
+    {
+        var bus = new InvalidationBus();
+        var sched = new FrameScheduler(new SimpleManualClock());
+        var viewport = new ViewportState(4, 1);
+        // The arranged frame reads the mutable viewport, drawing content anchored to the
+        // right edge so a resize visibly changes the rendered output.
+        DisplayList.DisplayList Build()
+        {
+            var w = viewport.Width;
+            var b = new DisplayListBuilder();
+            b.PushClip(new ClipPush(0, 0, w, 1));
+            b.DrawText(new TextRun(w - 1, 0, "A", new Rgb24(255, 255, 255), null, CellAttrFlags.None));
+            b.Pop();
+            return b.Build();
+        }
+        var caps = new TerminalCapabilities { TrueColor = true, Palette256 = true };
+        var pty = new CapturingPty();
+        var loop = new AppLoop(bus, sched, Build, viewport, caps, pty);
+
+        await loop.RunOnceAsync(CancellationToken.None);
+        var firstFrame = pty.Last;
+
+        // Grow the viewport via the shared runtime state and render again.
+        Assert.True(loop.Resize(40, 12));
+        Assert.Equal((40, 12), loop.Viewport.Size);
+        await loop.RunOnceAsync(CancellationToken.None);
+
+        // The next arranged and rendered frame reflects the new dimensions.
+        Assert.NotEqual(firstFrame, pty.Last);
+    }
 }

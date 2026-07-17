@@ -2,45 +2,82 @@ namespace Andy.Tui.Input;
 
 public sealed class FocusManager
 {
+    private sealed class Scope
+    {
+        public readonly HashSet<int> Members = new();
+        public int? SavedActiveId;
+    }
+
     private readonly LinkedList<int> _globalOrder = new();
     private int? _activeId;
-    private readonly Stack<HashSet<int>> _scopes = new();
+    private readonly Stack<Scope> _scopes = new();
 
     public int? ActiveId => _activeId;
 
-    public void PushScope() => _scopes.Push(new HashSet<int>());
+    /// <summary>
+    /// Enter a focus scope (e.g. a modal). The currently active node is remembered so
+    /// it can be restored on exit. Once nodes are registered inside the scope, focus is
+    /// moved into the scope so traversal stays contained.
+    /// </summary>
+    public void PushScope() => _scopes.Push(new Scope { SavedActiveId = _activeId });
+
+    /// <summary>
+    /// Exit the top focus scope, restoring focus to the node that was active before the
+    /// scope was entered (if it still exists). If that node is gone and focus is still
+    /// inside the popped scope, fall back to the first eligible node in the outer context.
+    /// </summary>
     public void PopScope()
     {
         if (_scopes.Count == 0) return;
         var scope = _scopes.Pop();
-        if (_activeId is int a && scope.Contains(a))
+
+        if (scope.SavedActiveId is int saved && _globalOrder.Contains(saved))
         {
-            _activeId = _globalOrder.First?.Value;
+            _activeId = saved;
+        }
+        else if (_activeId is int a && scope.Members.Contains(a) && !CurrentAllowed().Contains(a))
+        {
+            _activeId = FirstAllowedInOrder();
         }
     }
 
     public void Register(int nodeId)
     {
         if (!_globalOrder.Contains(nodeId)) _globalOrder.AddLast(nodeId);
-        if (_scopes.Count > 0) _scopes.Peek().Add(nodeId);
-        if (_activeId is null) _activeId = nodeId;
+        if (_scopes.Count > 0)
+        {
+            var scope = _scopes.Peek();
+            scope.Members.Add(nodeId);
+            // Modal entry: if focus is currently outside this scope, move it inside.
+            if (_activeId is null || !scope.Members.Contains(_activeId.Value))
+                _activeId = nodeId;
+        }
+        else if (_activeId is null)
+        {
+            _activeId = nodeId;
+        }
     }
 
     public void Unregister(int nodeId)
     {
         var node = _globalOrder.Find(nodeId);
         if (node != null) _globalOrder.Remove(node);
-        foreach (var s in _scopes) s.Remove(nodeId);
-        if (_activeId == nodeId) _activeId = _globalOrder.First?.Value;
+        foreach (var s in _scopes) s.Members.Remove(nodeId);
+        if (_activeId == nodeId)
+        {
+            // Move to the next eligible node in the current context, if any.
+            _activeId = FirstAllowedInOrder();
+        }
     }
 
     public void FocusNext()
     {
         if (_globalOrder.Count == 0) { _activeId = null; return; }
         var allowed = CurrentAllowed();
-        if (_activeId is null)
+        if (allowed.Count == 0) { _activeId = null; return; }
+        if (_activeId is null || !allowed.Contains(_activeId.Value))
         {
-            _activeId = allowed.FirstOrDefault();
+            _activeId = FirstAllowedInOrder();
             return;
         }
         var node = _globalOrder.Find(_activeId.Value) ?? _globalOrder.First!;
@@ -56,9 +93,10 @@ public sealed class FocusManager
     {
         if (_globalOrder.Count == 0) { _activeId = null; return; }
         var allowed = CurrentAllowed();
-        if (_activeId is null)
+        if (allowed.Count == 0) { _activeId = null; return; }
+        if (_activeId is null || !allowed.Contains(_activeId.Value))
         {
-            _activeId = allowed.FirstOrDefault();
+            _activeId = FirstAllowedInOrder();
             return;
         }
         var node = _globalOrder.Find(_activeId.Value) ?? _globalOrder.First!;
@@ -73,6 +111,14 @@ public sealed class FocusManager
     private HashSet<int> CurrentAllowed()
     {
         if (_scopes.Count == 0) return new HashSet<int>(_globalOrder);
-        return new HashSet<int>(_scopes.Peek());
+        return new HashSet<int>(_scopes.Peek().Members);
+    }
+
+    private int? FirstAllowedInOrder()
+    {
+        var allowed = CurrentAllowed();
+        foreach (var id in _globalOrder)
+            if (allowed.Contains(id)) return id;
+        return null;
     }
 }
