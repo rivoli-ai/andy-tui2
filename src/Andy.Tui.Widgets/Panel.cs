@@ -4,12 +4,27 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Panel
+public sealed class Panel : IThemeable, IStyleable
 {
     public string? Title { get; private set; }
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
     public DL.Rgb24 TitleColor { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(200, 200, 200));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Bg = theme.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+        TitleColor = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(200, 200, 200));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) TitleColor = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public void SetTitle(string? title) => Title = title;
 

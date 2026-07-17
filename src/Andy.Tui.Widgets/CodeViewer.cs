@@ -7,7 +7,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class CodeViewer
+    public sealed class CodeViewer : IThemeable, IStyleable
     {
         private readonly List<string> _lines = new();
         private int _scroll;
@@ -19,6 +19,25 @@ namespace Andy.Tui.Widgets
         public DL.Rgb24 String = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxString, new DL.Rgb24(200, 120, 120));
         public DL.Rgb24 Number = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxNumber, new DL.Rgb24(180, 180, 100));
         public DL.Rgb24 Preproc = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SyntaxPreproc, new DL.Rgb24(150, 150, 220));
+
+        /// <inheritdoc />
+        public void ApplyTheme(ST.Theme theme)
+        {
+            Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+            NumFg = theme.GetRgb(ST.ThemeToken.ForegroundMuted, new DL.Rgb24(120, 120, 120));
+            CodeFg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+            Keyword = theme.GetRgb(ST.ThemeToken.SyntaxKeyword, new DL.Rgb24(80, 160, 255));
+            Comment = theme.GetRgb(ST.ThemeToken.SyntaxComment, new DL.Rgb24(120, 160, 120));
+            String = theme.GetRgb(ST.ThemeToken.SyntaxString, new DL.Rgb24(200, 120, 120));
+            Number = theme.GetRgb(ST.ThemeToken.SyntaxNumber, new DL.Rgb24(180, 180, 100));
+            Preproc = theme.GetRgb(ST.ThemeToken.SyntaxPreproc, new DL.Rgb24(150, 150, 220));
+        }
+
+        /// <inheritdoc />
+        public void ApplyStyle(in ST.ResolvedStyle style)
+        {
+            if (style.Color.ToRgb24() is { } fg) CodeFg = fg;
+        }
         private static readonly HashSet<string> _keywords = new(StringComparer.Ordinal)
         {
             "using","namespace","class","struct","enum","interface",

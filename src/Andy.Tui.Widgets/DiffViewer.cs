@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class DiffViewer
+    public sealed class DiffViewer : IThemeable, IStyleable
     {
         private string[] _a = Array.Empty<string>();
         private string[] _b = Array.Empty<string>();
@@ -13,6 +13,18 @@ namespace Andy.Tui.Widgets
         private DL.Rgb24 _fg = new DL.Rgb24(220, 220, 220);
         private DL.Rgb24 _addBg = new DL.Rgb24(30, 70, 30);
         private DL.Rgb24 _delBg = new DL.Rgb24(80, 30, 30);
+
+        /// <inheritdoc />
+        public void ApplyTheme(ST.Theme theme)
+        {
+            Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+        }
+
+        /// <inheritdoc />
+        public void ApplyStyle(in ST.ResolvedStyle style)
+        {
+            if (style.Color.ToRgb24() is { } fg) _fg = fg;
+        }
 
         public void SetLeft(string text) => _a = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
         public void SetRight(string text) => _b = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');

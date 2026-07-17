@@ -11,7 +11,7 @@ namespace Andy.Tui.Widgets;
 /// LargeText renders big glyphs (digits and separators) in multiple styles and sizes.
 /// Intended for clocks, counters, and banners inside a TTY.
 /// </summary>
-public sealed class LargeText
+public sealed class LargeText : IThemeable, IStyleable
 {
     public enum LargeTextStyle { Block, SevenSegment, Outline }
 
@@ -22,6 +22,20 @@ public sealed class LargeText
 
     public DL.Rgb24 Background { get; set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new(0, 0, 0));
     public DL.Rgb24 Foreground { get; set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(230, 230, 230));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Background = theme.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(0, 0, 0));
+        Foreground = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(230, 230, 230));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Foreground = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Background = bg;
+    }
 
     public void SetText(string? text) => _text = text ?? string.Empty;
     public void SetStyle(LargeTextStyle style) => _style = style;

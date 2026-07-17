@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Toggle
+public sealed class Toggle : IThemeable, IStyleable
 {
     public bool Checked { get; private set; }
     public string? Label { get; private set; }
@@ -13,6 +13,21 @@ public sealed class Toggle
     public DL.Rgb24 BgOn { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Success, new DL.Rgb24(60, 120, 70));
     public DL.Rgb24 BgOff { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.ForegroundDisabled, new DL.Rgb24(80, 80, 80));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        BgOn = theme.GetRgb(ST.ThemeToken.Success, new DL.Rgb24(60, 120, 70));
+        BgOff = theme.GetRgb(ST.ThemeToken.ForegroundDisabled, new DL.Rgb24(80, 80, 80));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+    }
 
     public Toggle(bool initial = false, string? label = null)
     {

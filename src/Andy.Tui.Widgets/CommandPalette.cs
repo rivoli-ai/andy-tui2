@@ -7,7 +7,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class CommandPalette
+public sealed class CommandPalette : IThemeable, IStyleable
 {
     private string[] _allCommands = Array.Empty<string>();
     private readonly List<FilterResult> _results = new();
@@ -21,6 +21,23 @@ public sealed class CommandPalette
     public DL.Rgb24 PanelBorder { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(90, 90, 90));
     public DL.Rgb24 TextFg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
     public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(180, 180, 220));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        OverlayBg = theme.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(0, 0, 0));
+        PanelBg = theme.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
+        PanelBorder = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(90, 90, 90));
+        TextFg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Accent = theme.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(180, 180, 220));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) TextFg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) PanelBg = bg;
+    }
 
     public void SetCommands(IEnumerable<string> commands)
     {
