@@ -26,15 +26,13 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-    
-    - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
-    
+    # Build + test the complete project graph from a clean checkout using the
+    # SAME script CI and local developers run. If any source or test project in
+    # the graph fails, this step (and therefore the whole build job) fails, and
+    # the publish-* jobs below cannot run because they declare `needs: build`.
+    - name: Build complete graph and run test projects (Release)
+      run: scripts/ci-graph-test.sh --configuration Release --require-clean
+
     - name: Pack
       run: |
         # Determine version

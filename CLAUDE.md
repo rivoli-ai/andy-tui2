@@ -15,6 +15,7 @@ This file contains authorized commands and configuration for Claude Code Assista
 - `dotnet build` - Build the solution
 - `dotnet restore` - Restore NuGet packages
 - `dotnet run --project <project_path>` - Run a .NET project (macOS/cross-platform)
+- `scripts/ci-graph-test.sh --configuration <Debug|Release>` - Reproduce CI locally: restore, build the complete project graph, then run every test project after confirming its binary was produced by the build. Both CI workflows invoke this same script. Add `--require-clean` to enforce a clean checkout; set `RUN_PARITY=true` to include the Playwright parity suite.
 
 ### Platform-Specific Notes (macOS)
 

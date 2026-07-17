@@ -78,6 +78,13 @@ dotnet add package Andy.Tui --prerelease
   - `dotnet build -c Release`
 - Run tests:
   - `dotnet test -c Release`
+- Reproduce CI exactly (restore, build the complete graph, then run every test
+  project after confirming its binary was produced by the build):
+  - `scripts/ci-graph-test.sh --configuration Debug`
+  - `scripts/ci-graph-test.sh --configuration Release`
+  - Both the `ci` and `Build and Release` workflows run this same script, so a
+    local green run matches CI. Add `--require-clean` to enforce a clean
+    checkout, and set `RUN_PARITY=true` to include the Playwright parity suite.
 - Code coverage (optional):
   - `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults`
   - `reportgenerator -reports:"./TestResults/*/coverage.cobertura.xml" -targetdir:"./TestResults/CoverageReport" -reporttypes:Html`
