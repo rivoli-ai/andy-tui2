@@ -21,8 +21,10 @@ public class ScrollDirtyBudgetTests
             }
         }
         var comp = new TtyCompositor();
-        var dirty = comp.Damage(prev, next);
-        int dirtyArea = dirty.Sum(r => r.Width * r.Height);
+        // The scroll optimisation only kicks in when the caller opts into it.
+        var plan = comp.ComputeDamagePlan(prev, next, allowScroll: true);
+        Assert.NotEqual(0, plan.ScrollDy);
+        int dirtyArea = plan.Dirty.Sum(r => r.Width * r.Height);
         double percent = (double)dirtyArea / (width * height);
         Assert.True(percent <= 0.12, $"Dirty percent too high: {percent:P2}");
     }

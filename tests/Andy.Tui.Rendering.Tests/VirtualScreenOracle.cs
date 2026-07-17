@@ -8,8 +8,24 @@ namespace Andy.Tui.Rendering.Tests;
 public static class VirtualScreenOracle
 {
     public static CellGrid Decode(ReadOnlySpan<byte> bytes, (int Width, int Height) viewport)
+        => Decode(bytes, viewport, initial: null);
+
+    /// <summary>
+    /// Interprets an encoded frame against a virtual screen. When
+    /// <paramref name="initial"/> is provided the screen starts from that frame
+    /// (modelling incremental output on top of what is already displayed);
+    /// otherwise it starts blank. Understands cursor moves, SGR, printable text
+    /// and the SU/SD scroll operations (CSI S / CSI T).
+    /// </summary>
+    public static CellGrid Decode(ReadOnlySpan<byte> bytes, (int Width, int Height) viewport, CellGrid? initial)
     {
         var grid = new CellGrid(viewport.Width, viewport.Height);
+        if (initial is not null)
+        {
+            for (int y = 0; y < viewport.Height; y++)
+                for (int x = 0; x < viewport.Width; x++)
+                    grid[x, y] = initial[x, y];
+        }
         int row = 0, col = 0; // 0-based
         var currentFg = new Rgb24(255, 255, 255);
         var currentBg = new Rgb24(0, 0, 0);
@@ -61,6 +77,8 @@ public static class VirtualScreenOracle
                                     case 2: currentAttrs |= CellAttrFlags.Dim; idx++; break;
                                     case 5: currentAttrs |= CellAttrFlags.Blink; idx++; break;
                                     case 7: currentAttrs |= CellAttrFlags.Reverse; idx++; break;
+                                    case 39: currentFg = new Rgb24(255, 255, 255); idx++; break; // default foreground
+                                    case 49: currentBg = new Rgb24(0, 0, 0); idx++; break;       // default background
                                     case 38: // foreground
                                         if (idx + 1 < codes.Length && codes[idx + 1] == "2" && idx + 4 < codes.Length)
                                         {
@@ -100,6 +118,18 @@ public static class VirtualScreenOracle
                                 }
                             }
                             break;
+                        case 'S': // SU — scroll up: content moves up, blank rows at the bottom
+                            {
+                                int n = ParseCount(param.ToString());
+                                ScrollUp(grid, viewport, n);
+                            }
+                            break;
+                        case 'T': // SD — scroll down: content moves down, blank rows at the top
+                            {
+                                int n = ParseCount(param.ToString());
+                                ScrollDown(grid, viewport, n);
+                            }
+                            break;
                         default:
                             break;
                     }
@@ -117,5 +147,32 @@ public static class VirtualScreenOracle
             }
         }
         return grid;
+    }
+
+    private static int ParseCount(string param)
+    {
+        return int.TryParse(param, out var n) && n > 0 ? n : 1;
+    }
+
+    private static void ScrollDown(CellGrid grid, (int Width, int Height) vp, int n)
+    {
+        n = Math.Min(n, vp.Height);
+        for (int y = vp.Height - 1; y >= n; y--)
+            for (int x = 0; x < vp.Width; x++)
+                grid[x, y] = grid[x, y - n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < vp.Width; x++)
+                grid[x, y] = default;
+    }
+
+    private static void ScrollUp(CellGrid grid, (int Width, int Height) vp, int n)
+    {
+        n = Math.Min(n, vp.Height);
+        for (int y = 0; y < vp.Height - n; y++)
+            for (int x = 0; x < vp.Width; x++)
+                grid[x, y] = grid[x, y + n];
+        for (int y = vp.Height - n; y < vp.Height; y++)
+            for (int x = 0; x < vp.Width; x++)
+                grid[x, y] = default;
     }
 }

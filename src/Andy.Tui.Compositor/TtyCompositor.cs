@@ -46,14 +46,38 @@ public sealed class TtyCompositor : ICompositor
         return grid;
     }
 
+    /// <summary>
+    /// Computes a self-contained set of dirty rectangles that, when painted onto
+    /// the previously displayed frame, reproduce <paramref name="next"/> exactly.
+    /// This never applies the vertical-scroll optimisation, because dirty rects
+    /// on their own carry no scroll operation: callers that want scrolling must
+    /// use <see cref="ComputeDamagePlan"/>, which pairs the reduced damage with
+    /// the scroll delta that has to be emitted alongside it.
+    /// </summary>
     public IReadOnlyList<DirtyRect> Damage(CellGrid previous, CellGrid next)
     {
-        // If viewport size changed, repaint entire next frame to avoid stale edges
+        return ComputeDamagePlan(previous, next, allowScroll: false).Dirty;
+    }
+
+    /// <summary>
+    /// Computes how to transform the previous frame into <paramref name="next"/>,
+    /// optionally reducing damage to a bounded vertical scroll plus the newly
+    /// exposed rows. A scroll is only proposed when <paramref name="allowScroll"/>
+    /// is true (the caller has confirmed the terminal supports scroll
+    /// operations), the shifted region matches <em>exactly</em>, and the scroll
+    /// repaints fewer cells than a straight per-row diff. The returned plan is
+    /// always sufficient on its own: applying its scroll then painting its dirty
+    /// rects yields <paramref name="next"/>.
+    /// </summary>
+    public DamagePlan ComputeDamagePlan(CellGrid previous, CellGrid next, bool allowScroll)
+    {
+        // If viewport size changed, repaint entire next frame to avoid stale edges.
         if (previous.Width != next.Width || previous.Height != next.Height)
         {
-            return new List<DirtyRect> { new DirtyRect(0, 0, next.Width, next.Height) };
+            return new DamagePlan(0, new List<DirtyRect> { new DirtyRect(0, 0, next.Width, next.Height) });
         }
-        // Fallback: compute per-row dirty runs
+
+        // Fallback: compute per-row dirty runs (always correct without any scroll).
         var fallback = new List<DirtyRect>();
         int w = Math.Min(previous.Width, next.Width);
         int h = Math.Min(previous.Height, next.Height);
@@ -76,25 +100,32 @@ public sealed class TtyCompositor : ICompositor
                 fallback.Add(new DirtyRect(runStart, y, (w - runStart), 1));
         }
 
-        // Try scroll detection and prefer it only if cheaper than fallback
-        if (TryDetectVerticalScroll(previous, next, out int dy))
+        // Try scroll detection and prefer it only when the caller allows scroll
+        // operations and it repaints no more cells than the fallback.
+        if (allowScroll && TryDetectVerticalScroll(previous, next, out int dy))
         {
+            // One height-1 rect per exposed row: RowRuns paints a single row per
+            // DirtyRect, and this matches the fallback convention so every exposed
+            // row is guaranteed to be repainted after the scroll.
             var scroll = new List<DirtyRect>();
             if (dy > 0)
             {
-                scroll.Add(new DirtyRect(0, 0, next.Width, Math.Min(dy, next.Height)));
+                int hh = Math.Min(dy, next.Height);
+                for (int y = 0; y < hh; y++)
+                    scroll.Add(new DirtyRect(0, y, next.Width, 1));
             }
             else if (dy < 0)
             {
                 int hh = Math.Min(-dy, next.Height);
-                scroll.Add(new DirtyRect(0, next.Height - hh, next.Width, hh));
+                for (int y = next.Height - hh; y < next.Height; y++)
+                    scroll.Add(new DirtyRect(0, y, next.Width, 1));
             }
             int scrollArea = 0; foreach (var r in scroll) scrollArea += r.Width * r.Height;
             int fallbackArea = 0; foreach (var r in fallback) fallbackArea += r.Width * r.Height;
-            if (scrollArea <= fallbackArea)
-                return scroll;
+            if (dy != 0 && scrollArea < fallbackArea)
+                return new DamagePlan(dy, scroll);
         }
-        return fallback;
+        return new DamagePlan(0, fallback);
     }
 
     internal static bool TryDetectVerticalScroll(CellGrid previous, CellGrid next, out int dy)
@@ -144,8 +175,12 @@ public sealed class TtyCompositor : ICompositor
         if (bestMatches <= 0) return false;
         // Expected comparable rows for a given dy is h - |dy|
         int expectedComparable = h - Math.Abs(bestCandidate);
-        // Require near-perfect match across comparable rows (allow at most 1 mismatch)
-        if (bestRowsCompared == expectedComparable && bestMatches >= Math.Max(1, expectedComparable - 1))
+        // Require an EXACT match across every comparable row. The scroll
+        // optimisation shifts these rows on-screen without repainting them, so a
+        // single mismatched row would leave stale content that diverges from the
+        // next frame. Anything less than a perfect shift falls back to a full
+        // per-row diff instead.
+        if (expectedComparable > 0 && bestRowsCompared == expectedComparable && bestMatches == expectedComparable)
         {
             dy = bestCandidate;
             return true;
