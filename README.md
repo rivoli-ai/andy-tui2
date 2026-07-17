@@ -67,6 +67,13 @@ dotnet add package Andy.Tui --prerelease
 
 > **Note**: Pre-release packages are published automatically for every commit to main branch.
 
+### Package model
+- `Andy.Tui` is a **dependency meta-package**: it ships no assemblies of its own and instead declares NuGet dependencies on every library, so a single reference pulls in the whole framework. Each library is also published as its own package and can be referenced individually.
+- `Andy.Tui.CliWidgets` is an **opt-in add-on** package that depends on the `Andy.Tui` meta-package. It is not pulled in by default (that would create a dependency cycle); add it explicitly when you want the CLI-focused widgets:
+  ```bash
+  dotnet add package Andy.Tui.CliWidgets --prerelease
+  ```
+
 ## Getting started
 
 ### Prerequisites

@@ -23,6 +23,13 @@
     <Description>Andy.Tui v2 — Reactive TUI framework for .NET.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
+
+    <!-- Shared package metadata so every produced package (not just the umbrella)
+         ships complete project/repository links and tags. -->
+    <PackageProjectUrl>https://github.com/rivoli-ai/andy-tui2</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/rivoli-ai/andy-tui2</RepositoryUrl>
+    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet</PackageTags>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <!-- Ensure the package icon is included. Expect icon under assets/ -->
