@@ -1,0 +1,11 @@
+# Projects deliberately excluded from Andy.Tui.sln.
+#
+# List one repository-relative *.csproj path per line (forward slashes).
+# Blank lines and lines beginning with '#' are ignored.
+#
+# scripts/validate-solution.sh fails CI when a project on disk is neither a
+# member of the solution nor listed here, so every new project must be a
+# conscious include-or-exclude decision.
+#
+# Currently every repository project is included in the solution, so this list
+# is intentionally empty.
