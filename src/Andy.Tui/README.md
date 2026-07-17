@@ -42,15 +42,6 @@ using Andy.Tui.Backend.Terminal;   // CapabilityDetector, IPtyIo
 using Andy.Tui.Core;               // FrameScheduler
 using Andy.Tui.DisplayList;        // DisplayListBuilder and ops
 
-sealed class StdoutPty : IPtyIo
-{
-    public Task WriteAsync(ReadOnlyMemory<byte> frameBytes, CancellationToken ct)
-    {
-        Console.Out.Write(Encoding.UTF8.GetString(frameBytes.Span));
-        return Task.CompletedTask;
-    }
-}
-
 var caps = CapabilityDetector.DetectFromEnvironment();
 var scheduler = new FrameScheduler();
 var viewport = (Console.WindowWidth, Console.WindowHeight);
@@ -59,6 +50,17 @@ var b = new DisplayListBuilder();
 b.DrawText(new TextRun(2, 1, "Hello, TUI!", new Rgb24(0, 200, 0), null, CellAttrFlags.Bold));
 
 await scheduler.RenderOnceAsync(b.Build(), viewport, caps, new StdoutPty(), CancellationToken.None);
+
+// A tiny writer that sends encoded frame bytes to stdout.
+// Top-level statements must precede type declarations, so this comes last.
+sealed class StdoutPty : IPtyIo
+{
+    public Task WriteAsync(ReadOnlyMemory<byte> frameBytes, CancellationToken ct)
+    {
+        Console.Out.Write(Encoding.UTF8.GetString(frameBytes.Span));
+        return Task.CompletedTask;
+    }
+}
 ```
 
 See the [Getting Started guide](https://github.com/rivoli-ai/andy-tui2/blob/main/docs/GETTING_STARTED.md)
