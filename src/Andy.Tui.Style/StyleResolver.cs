@@ -133,36 +133,62 @@ public sealed class StyleResolver
 
     private static object ResolveVars(object value, IDictionary<string, DeclWinner> winners, int depth = 0)
     {
-        if (value is not string s) return value;
+        if (value is not string original) return value;
+        var s = original.Trim();
         if (!s.StartsWith("var(", StringComparison.Ordinal)) return value;
-        if (depth > 8) return value; // prevent cycles
+        if (depth > 16) return value; // hard guard against pathological nesting
 
-        // very small parser for var(--name, fallback)
-        var inner = s.AsSpan(4, s.Length - 5).Trim(); // strip var( )
+        // Locate the matching close paren for the opening '(' at index 3. Malformed input
+        // (missing ')' or trailing content) is left as-is instead of slicing out of range.
+        int open = 3;
+        int close = FindMatchingParen(s, open);
+        if (close < 0) return value; // unterminated var()
+        var trailing = s[(close + 1)..].Trim();
+        if (trailing.Length > 0) return value; // unsupported trailing content
+
+        var inner = s[(open + 1)..close];
         int comma = inner.IndexOf(',');
-        ReadOnlySpan<char> nameSpan;
-        ReadOnlySpan<char> fallbackSpan = default;
+        string name;
+        string? fallback = null;
         if (comma >= 0)
         {
-            nameSpan = inner.Slice(0, comma).Trim();
-            fallbackSpan = inner.Slice(comma + 1).Trim();
+            name = inner[..comma].Trim();
+            fallback = inner[(comma + 1)..].Trim();
         }
         else
         {
-            nameSpan = inner.Trim();
+            name = inner.Trim();
         }
 
-        var name = nameSpan.ToString();
+        if (!name.StartsWith("--", StringComparison.Ordinal)) return value; // invalid custom-property name
+
         if (winners.TryGetValue(name, out var w))
         {
+            // Guard against self/mutual reference cycles: if the referenced value points back
+            // to this same name, the depth guard stops the recursion and we fall through.
             return ResolveVars(w.Value, winners, depth + 1);
         }
 
-        if (!fallbackSpan.IsEmpty)
+        if (!string.IsNullOrEmpty(fallback))
         {
-            return ResolveVars(fallbackSpan.ToString(), winners, depth + 1);
+            return ResolveVars(fallback, winners, depth + 1);
         }
         return value;
+    }
+
+    private static int FindMatchingParen(string s, int openIndex)
+    {
+        int level = 0;
+        for (int i = openIndex; i < s.Length; i++)
+        {
+            if (s[i] == '(') level++;
+            else if (s[i] == ')')
+            {
+                level--;
+                if (level == 0) return i;
+            }
+        }
+        return -1;
     }
 
     private static TEnum GetEnum<TEnum>(IDictionary<string, DeclWinner> winners, string key, TEnum fallback) where TEnum : struct
@@ -184,6 +210,14 @@ public sealed class StyleResolver
                 if (int.TryParse(s, out var fwNum)) return (TEnum)(object)(fwNum >= 600 ? FontWeight.Bold : FontWeight.Normal);
             }
             if (Enum.TryParse<TEnum>(s, ignoreCase: true, out var parsed)) return parsed;
+            // CSS enum tokens are hyphenated (flex-start, space-between, wrap-reverse);
+            // the corresponding enum members are PascalCase without separators.
+            var collapsed = s.Replace("-", string.Empty);
+            if (!string.Equals(collapsed, s, StringComparison.Ordinal) &&
+                Enum.TryParse<TEnum>(collapsed, ignoreCase: true, out var parsedCollapsed))
+            {
+                return parsedCollapsed;
+            }
         }
         if (typeof(TEnum) == typeof(FontWeight))
         {
@@ -211,7 +245,14 @@ public sealed class StyleResolver
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
-        return raw switch { Length l => l, int i => new Length(i), double d => new Length(d), string s when double.TryParse(s, out var d2) => new Length(d2), _ => fallback };
+        return raw switch
+        {
+            Length l => l,
+            int i => new Length(i),
+            double d => new Length(d),
+            string s when TryParseLengthToken(s, out var len) => len,
+            _ => fallback
+        };
     }
 
     private static LengthOrAuto GetLengthOrAuto(IDictionary<string, DeclWinner> winners, string key, LengthOrAuto fallback)
@@ -220,13 +261,44 @@ public sealed class StyleResolver
         var raw = ResolveVars(w.Value, winners);
         return raw switch
         {
-            string s when string.Equals(s, "auto", StringComparison.OrdinalIgnoreCase) => LengthOrAuto.Auto(),
-            string s when s.EndsWith("%", StringComparison.Ordinal) && double.TryParse(s.TrimEnd('%'), out var pct) => LengthOrAuto.FromPercent(pct),
+            string s when string.Equals(s.Trim(), "auto", StringComparison.OrdinalIgnoreCase) => LengthOrAuto.Auto(),
+            string s when TryParseLengthToken(s, out var len) => new LengthOrAuto(len),
             Length l => new LengthOrAuto(l),
             int i => new LengthOrAuto(new Length(i)),
             double d => new LengthOrAuto(new Length(d)),
             _ => fallback
         };
+    }
+
+    /// <summary>
+    /// Parse a single length token accepting unitless numbers, an explicit <c>px</c> unit,
+    /// and percentages consistently. Returns false for anything else (e.g. keywords).
+    /// </summary>
+    private static bool TryParseLengthToken(string token, out Length length)
+    {
+        length = default;
+        if (string.IsNullOrWhiteSpace(token)) return false;
+        token = token.Trim();
+        if (token.EndsWith("%", StringComparison.Ordinal))
+        {
+            var pctStr = token[..^1].Trim();
+            if (double.TryParse(pctStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pct))
+            {
+                length = Length.FromPercent(pct);
+                return true;
+            }
+            return false;
+        }
+        if (token.EndsWith("px", StringComparison.OrdinalIgnoreCase))
+        {
+            token = token[..^2].Trim();
+        }
+        if (double.TryParse(token, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var px))
+        {
+            length = new Length(px);
+            return true;
+        }
+        return false;
     }
 
     private static RgbaColor GetColor(IDictionary<string, DeclWinner> winners, string key, RgbaColor fallback)
@@ -282,7 +354,7 @@ public sealed class StyleResolver
         if (winners.TryGetValue("gap", out var sh))
         {
             var raw = ResolveVars(sh.Value, winners);
-            var len = raw switch { Length l => l, int i => new Length(i), double d => new Length(d), string s when double.TryParse(s, out var d2) => new Length(d2), _ => (Length?)null };
+            var len = raw switch { Length l => l, int i => new Length(i), double d => new Length(d), string s when TryParseLengthToken(s, out var parsedLen) => parsedLen, _ => (Length?)null };
             if (len is not null)
             {
                 shorthandWinner = sh;
