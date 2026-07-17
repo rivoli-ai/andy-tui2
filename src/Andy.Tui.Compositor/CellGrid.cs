@@ -11,7 +11,18 @@ namespace Andy.Tui.Compositor;
 /// (including a transparent background) show through. An untouched cell
 /// (<c>default(Cell)</c>) is fully transparent.
 /// </summary>
-public readonly record struct Cell(string Grapheme, byte Width, Rgb24? Fg, Rgb24? Bg, CellAttrFlags Attrs);
+/// <remarks>
+/// <see cref="Hyperlink"/> carries the URL of an OSC 8 hyperlink that covers this
+/// cell, or <c>null</c> for a plain cell. Because the link is stored per-cell it
+/// is clipped together with the glyphs it decorates, so the encoder can wrap each
+/// surviving run in a properly terminated sequence — a clip can never split a
+/// hyperlink control sequence.
+/// </remarks>
+public readonly record struct Cell(string Grapheme, byte Width, Rgb24? Fg, Rgb24? Bg, CellAttrFlags Attrs)
+{
+    /// <summary>URL of an OSC 8 hyperlink covering this cell, or <c>null</c> if none.</summary>
+    public string? Hyperlink { get; init; }
+}
 
 public sealed class CellGrid
 {

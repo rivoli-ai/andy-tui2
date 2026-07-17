@@ -16,4 +16,20 @@ namespace Andy.Tui.DisplayList;
 /// <see cref="TerminalText"/> for the trust boundary contract.
 /// </para>
 /// </summary>
-public readonly record struct TextRun(int X, int Y, string Content, Rgb24? Fg, Rgb24? Bg, CellAttrFlags Attrs) : IDisplayOp;
+/// <remarks>
+/// <see cref="Hyperlink"/> is optional structured metadata for an OSC 8 terminal
+/// hyperlink covering this run's cells. It is <c>null</c> when the run is not a
+/// link. The URL is <b>never</b> embedded in <see cref="Content"/>: control
+/// sequences must not consume layout cells, and encoding them out-of-band lets
+/// the encoder gate output on terminal capabilities and guarantees the sequence
+/// is always terminated even when the run is clipped.
+/// </remarks>
+public readonly record struct TextRun(int X, int Y, string Content, Rgb24? Fg, Rgb24? Bg, CellAttrFlags Attrs) : IDisplayOp
+{
+    /// <summary>
+    /// URL for an OSC 8 hyperlink spanning this run's cells, or <c>null</c> for a
+    /// plain (non-link) run. Emitted only when the terminal advertises hyperlink
+    /// support; otherwise the run renders as plain text.
+    /// </summary>
+    public string? Hyperlink { get; init; }
+}

@@ -122,10 +122,48 @@ public sealed class AnsiEncoder : IAnsiEncoder
             // command. The compositor already rewrites controls to inert placeholders, but
             // a RowRun can be constructed directly (bypassing the compositor), so sanitize
             // here as well. Sanitize returns the same instance when there is nothing to fix.
-            sb.Append(TerminalText.Sanitize(run.Text));
+            var safeText = TerminalText.Sanitize(run.Text);
+
+            // OSC 8 hyperlink: emit only when the terminal advertises support and the
+            // run actually carries a link. The open/close pair brackets exactly this
+            // run's text, so a clipped or truncated run can never leave the terminal
+            // with an unterminated hyperlink, and the controls never occupy a cell.
+            var link = HyperlinkSupported(caps, run.Hyperlink) ? SanitizeHyperlinkUri(run.Hyperlink!) : null;
+            if (link is not null)
+            {
+                sb.Append("\x1b]8;;").Append(link).Append("\x1b\\");
+                sb.Append(safeText);
+                sb.Append("\x1b]8;;\x1b\\");
+            }
+            else
+            {
+                sb.Append(safeText);
+            }
         }
 
         return Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static bool HyperlinkSupported(TerminalCapabilities caps, string? uri)
+        => caps.Hyperlinks && !string.IsNullOrEmpty(uri);
+
+    /// <summary>
+    /// Strips characters that could break out of an OSC 8 sequence from a URI.
+    /// Removes all C0 controls (0x00-0x1F, including ESC and BEL), DEL (0x7F) and
+    /// C1 controls (0x80-0x9F). This prevents an attacker-supplied URL from
+    /// injecting a String Terminator (<c>ESC \\</c>), a BEL terminator, or any other
+    /// control sequence into the stream. The result is safe to embed verbatim.
+    /// </summary>
+    public static string SanitizeHyperlinkUri(string uri)
+    {
+        if (string.IsNullOrEmpty(uri)) return string.Empty;
+        var sb = new StringBuilder(uri.Length);
+        foreach (var ch in uri)
+        {
+            if (ch < 0x20 || ch == 0x7F || (ch >= 0x80 && ch <= 0x9F)) continue;
+            sb.Append(ch);
+        }
+        return sb.ToString();
     }
 
     private static void ApplyAttrs(StringBuilder sb, CellAttrFlags attrs)

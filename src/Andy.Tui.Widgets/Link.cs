@@ -27,17 +27,16 @@ namespace Andy.Tui.Widgets
             b.DrawRect(new DL.Rect(x, y, w, h, _bg));
             string content = _text.Length > 0 ? _text : _url;
             if (content.Length > w) content = content.Substring(0, w);
-            string rendered = content;
-            if (_enableOsc8 && !string.IsNullOrEmpty(_url))
+            // The URL is attached as structured metadata, never embedded in the text
+            // content. The compositor keeps it out of the cell stream (so it never
+            // consumes layout cells or gets clipped) and the encoder emits a properly
+            // terminated OSC 8 sequence only when the terminal advertises hyperlink
+            // support. Terminals without support fall back to plain, styled text.
+            string? hyperlink = _enableOsc8 && !string.IsNullOrEmpty(_url) ? _url : null;
+            b.DrawText(new DL.TextRun(x, y, content, _fg, null, DL.CellAttrFlags.Underline | DL.CellAttrFlags.Bold)
             {
-                // OSC 8 hyperlink: ESC ] 8 ; params ; URI ST  ...  ESC ] 8 ; ; ST
-                const string esc = "\u001b";
-                const string st = "\u001b\\"; // String Terminator
-                string start = $"{esc}]8;;{_url}{st}";
-                string end = $"{esc}]8;;{st}";
-                rendered = start + content + end;
-            }
-            b.DrawText(new DL.TextRun(x, y, rendered, _fg, null, DL.CellAttrFlags.Underline | DL.CellAttrFlags.Bold));
+                Hyperlink = hyperlink
+            });
             b.Pop();
         }
     }
