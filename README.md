@@ -73,6 +73,14 @@ dotnet add package Andy.Tui --prerelease
 - .NET SDK 8.0 or later
 - Terminal with ANSI color support (most modern terminals)
 
+### Your first app
+Andy.Tui is immediate-mode: each frame you build a display list with
+`DisplayListBuilder` and render it with `FrameScheduler.RenderOnceAsync`. See the
+[Getting Started guide](docs/GETTING_STARTED.md) for a complete, copy-paste
+minimal example (compiled in CI) covering terminal setup, reactive state, input,
+rendering, and failure-safe shutdown. Runnable demos live in
+[`examples/Andy.Tui.Examples`](examples/Andy.Tui.Examples).
+
 ### Building from source
   - `dotnet restore`
   - `dotnet build -c Release`

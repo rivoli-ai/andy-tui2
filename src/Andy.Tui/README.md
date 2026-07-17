@@ -30,14 +30,39 @@ A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with decl
 
 ## Quick Start
 
-```csharp
-using Andy.Tui;
-using Andy.Tui.Widgets;
+Andy.Tui is immediate-mode: each frame you build a display list and hand it to
+the frame scheduler, which composites, diffs, encodes, and writes it.
 
-// Example code - API still in development
-var label = new Label { Text = "Hello, TUI!" };
-label.Style.ForegroundColor = Color.Green;
+```csharp
+using System;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Andy.Tui.Backend.Terminal;   // CapabilityDetector, IPtyIo
+using Andy.Tui.Core;               // FrameScheduler
+using Andy.Tui.DisplayList;        // DisplayListBuilder and ops
+
+sealed class StdoutPty : IPtyIo
+{
+    public Task WriteAsync(ReadOnlyMemory<byte> frameBytes, CancellationToken ct)
+    {
+        Console.Out.Write(Encoding.UTF8.GetString(frameBytes.Span));
+        return Task.CompletedTask;
+    }
+}
+
+var caps = CapabilityDetector.DetectFromEnvironment();
+var scheduler = new FrameScheduler();
+var viewport = (Console.WindowWidth, Console.WindowHeight);
+
+var b = new DisplayListBuilder();
+b.DrawText(new TextRun(2, 1, "Hello, TUI!", new Rgb24(0, 200, 0), null, CellAttrFlags.Bold));
+
+await scheduler.RenderOnceAsync(b.Build(), viewport, caps, new StdoutPty(), CancellationToken.None);
 ```
+
+See the [Getting Started guide](https://github.com/rivoli-ai/andy-tui2/blob/main/docs/GETTING_STARTED.md)
+for terminal setup, input handling, reactive state, and failure-safe shutdown.
 
 ## Installation
 
