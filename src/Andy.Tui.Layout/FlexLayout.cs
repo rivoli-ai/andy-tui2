@@ -38,9 +38,17 @@ public static class FlexLayout
             return new Rect(r.X, r.Y, w, h);
         }
 
+        // A container with display:none produces no layout at all.
+        if (containerStyle.Display == Andy.Tui.Style.Display.None)
+        {
+            return;
+        }
+
         bool isRowDirection = containerStyle.FlexDirection == Andy.Tui.Style.FlexDirection.Row;
 
-        // Sort by order (stable) and drop display:none items so they occupy no space.
+        // Sort by order (stable, preserving original order among equals) and drop
+        // display:none items so they occupy no space -- they are removed from the
+        // flex flow entirely (CSS parity).
         var ordered = children
             .Select((c, idx) => (c.Node, c.Style, idx))
             .Where(t => t.Style.Display != Andy.Tui.Style.Display.None)

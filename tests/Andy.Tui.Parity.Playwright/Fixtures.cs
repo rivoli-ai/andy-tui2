@@ -1,132 +1,111 @@
 using System.Text;
 using PW = Microsoft.Playwright;
-using Andy.Tui.Layout;
-using Andy.Tui.Style;
 
 namespace Andy.Tui.Parity.Playwright;
 
+/// <summary>
+/// Browser parity tests. Every scenario in <see cref="ParityScenarios.All"/> is
+/// rendered by a real Chromium engine and compared, position by position,
+/// against Andy.Tui's <see cref="Andy.Tui.Layout.FlexLayout"/> output. The same
+/// scenario objects generate both the reference HTML and the Andy.Tui inputs,
+/// so the two sides can never drift apart.
+///
+/// When a Chromium build is not available (for example a developer machine that
+/// never ran <c>playwright install</c>), the tests degrade to a no-op instead
+/// of failing, because <see cref="TestUtil.TryCreatePlaywrightAsync"/> returns
+/// null. In CI the browser is installed, so the comparison actually runs. The
+/// browser-free <see cref="DeterministicParityTests"/> guarantee coverage
+/// everywhere regardless.
+/// </summary>
 public class Fixtures
 {
-    [Fact(Skip = "Temporarily disabled - test failing, needs investigation")]
-    public async Task Row_Wrap_With_Gaps_Matches_Approx()
-    {
-        var pw = await TestUtil.TryCreatePlaywrightAsync();
-        if (pw is null) return; // skip locally when browsers not installed
-        await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
-        var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 300, Height = 200 } });
-        var page = await context.NewPageAsync();
-        var html = HtmlForRowWrap();
-        await page.SetContentAsync(html);
-        var boxes = await GetClientRects(page, ".c", ".item");
+    public static IEnumerable<object[]> Scenarios() =>
+        ParityScenarios.All.Select(s => new object[] { s.Name });
 
-        // Simulate our layout with similar inputs (in px)
-        var containerStyle = ResolvedStyle.Default with { ColumnGap = new Length(10), RowGap = new Length(10), FlexWrap = FlexWrap.Wrap, AlignContent = AlignContent.FlexStart };
-        var items = Enumerable.Repeat((ILayoutNode)new DummyNode(50, 20), 6)
-            .Select(n => (n, ResolvedStyle.Default)).ToList<(ILayoutNode, ResolvedStyle)>();
-        FlexLayout.Layout(new Size(300, 200), containerStyle, items);
-        var ourPairs = NormalizePairs(items.Select(t => ((DummyNode)t.Item1).ArrangedRect).Select(r => (r.X, r.Y)).ToArray());
-        var refPairs = NormalizePairs(boxes);
-        for (int i = 0; i < ourPairs.Length; i++)
+    [Theory]
+    [MemberData(nameof(Scenarios))]
+    public async Task Browser_Parity(string name)
+    {
+        var scenario = ParityScenarios.All.Single(s => s.Name == name);
+
+        var pw = await TestUtil.TryCreatePlaywrightAsync();
+        if (pw is null) return; // Chromium not installed locally; deterministic tests still cover this.
+
+        await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
+        var context = await browser.NewContextAsync(new()
         {
-            Assert.InRange(ourPairs[i].X, refPairs[i].X - 2, refPairs[i].X + 2);
-            Assert.InRange(ourPairs[i].Y, refPairs[i].Y - 2, refPairs[i].Y + 2);
+            ViewportSize = new()
+            {
+                Width = (int)Math.Ceiling(scenario.ContainerWidth) + 40,
+                Height = (int)Math.Ceiling(scenario.ContainerHeight) + 40,
+            },
+        });
+        var page = await context.NewPageAsync();
+        await page.SetContentAsync(scenario.ToReferenceHtml());
+
+        var refPositions = await GetItemTopLefts(page);
+        var reference = ParityScenarios.Normalize(refPositions);
+
+        var ourRects = scenario.RunAndyTui();
+        var ours = ParityScenarios.Normalize(ourRects.Select(r => (r.X, r.Y)));
+
+        Assert.Equal(reference.Length, ours.Length);
+
+        var tol = ParityScenarios.PositionTolerancePx;
+        for (int i = 0; i < reference.Length; i++)
+        {
+            bool xOk = Math.Abs(ours[i].X - reference[i].X) <= tol;
+            bool yOk = Math.Abs(ours[i].Y - reference[i].Y) <= tol;
+            if (!xOk || !yOk)
+            {
+                Assert.Fail(Diagnostics(name, reference, ours));
+            }
         }
     }
 
-    private static (double X, double Y)[] NormalizePairs((double X, double Y)[] pairs)
+    /// <summary>
+    /// Reads the top-left of every laid-out flex child relative to the container
+    /// content box. Items with display:none are skipped so only in-flow items
+    /// are compared, matching how <see cref="ParityScenario.RunAndyTui"/> reports
+    /// only visible items.
+    /// </summary>
+    private static async Task<(double X, double Y)[]> GetItemTopLefts(PW.IPage page)
     {
-        if (pairs.Length == 0) return pairs;
-        var minX = pairs.Min(p => p.X);
-        var minY = pairs.Min(p => p.Y);
-        return pairs
-            .Select(p => (X: p.X - minX, Y: p.Y - minY))
-            .OrderBy(p => p.Y)
-            .ThenBy(p => p.X)
-            .ToArray();
-    }
-
-    [Fact(Skip = "Temporarily disabled - Playwright browsers not installed in CI")]
-    public async Task Justify_Content_Variants_Match_Centers()
-    {
-        var pw = await TestUtil.TryCreatePlaywrightAsync();
-        if (pw is null) return;
-        await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
-        var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 300, Height = 100 } });
-        var page = await context.NewPageAsync();
-        var html = "<style>.c{display:flex;width:300px;align-content:flex-start}.i{width:50px;height:10px}</style><div class=\"c\" style=\"justify-content:center\"><div class=i></div><div class=i></div></div>";
-        await page.SetContentAsync(html);
-        var boxes = await GetClientRects(page, ".c", ".i");
-
-        var containerStyle = ResolvedStyle.Default with { ColumnGap = new Length(0), JustifyContent = JustifyContent.Center, AlignContent = AlignContent.FlexStart };
-        var n1 = new DummyNode(50, 10);
-        var n2 = new DummyNode(50, 10);
-        var items = new List<(ILayoutNode, ResolvedStyle)> { (n1, ResolvedStyle.Default), (n2, ResolvedStyle.Default) };
-        FlexLayout.Layout(new Size(300, 100), containerStyle, items);
-        var ourPairs2 = NormalizePairs(new[] { (n1.ArrangedRect.X, n1.ArrangedRect.Y), (n2.ArrangedRect.X, n2.ArrangedRect.Y) });
-        var refPairs2 = NormalizePairs(boxes);
-        for (int i = 0; i < ourPairs2.Length; i++)
-        {
-            Assert.InRange(ourPairs2[i].X, refPairs2[i].X - 2, refPairs2[i].X + 2);
-        }
-    }
-
-    [Fact(Skip = "Temporarily disabled - test failing, needs investigation")]
-    public async Task Column_Wrap_AlignContent_Matches_Approx()
-    {
-        var pw = await TestUtil.TryCreatePlaywrightAsync();
-        if (pw is null) return;
-        await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
-        var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 300, Height = 200 } });
-        var page = await context.NewPageAsync();
-        var html = "<style>.c{display:flex;flex-direction:column;flex-wrap:wrap;gap:10px;height:200px;width:200px;align-content:flex-start}.i{width:50px;height:50px}</style><div class=\"c\">" + new string('x', 0) + "<div class=i></div><div class=i></div><div class=i></div><div class=i></div></div>";
-        await page.SetContentAsync(html);
-        var boxes = await GetClientRects(page, ".c", ".i");
-
-        var containerStyle = ResolvedStyle.Default with { FlexDirection = FlexDirection.Column, FlexWrap = FlexWrap.Wrap, RowGap = new Length(10), ColumnGap = new Length(10), AlignContent = AlignContent.FlexStart };
-        var nodes = Enumerable.Repeat((ILayoutNode)new DummyNode(50, 50), 4).Select(n => (n, ResolvedStyle.Default)).ToList<(ILayoutNode, ResolvedStyle)>();
-        FlexLayout.Layout(new Size(200, 200), containerStyle, nodes);
-        var ourPairs3 = NormalizePairs(nodes.Select(t => ((DummyNode)t.Item1).ArrangedRect).Select(r => (r.X, r.Y)).ToArray());
-        var refPairs3 = NormalizePairs(boxes);
-        // Compare horizontal span between first and last columns
-        var ourSpan = ourPairs3.Max(p => p.X) - ourPairs3.Min(p => p.X);
-        var refSpan = refPairs3.Max(p => p.X) - refPairs3.Min(p => p.X);
-        Assert.InRange(ourSpan, refSpan - 5, refSpan + 5);
-    }
-
-    private static string HtmlForRowWrap()
-    {
-        var sb = new StringBuilder();
-        sb.Append("<style> html,body{margin:0;padding:0} *{box-sizing:border-box} .c { display:flex; flex-wrap:wrap; gap:10px; width:300px; height:200px; } .item{ width:50px; height:20px; background:#ccc } </style>");
-        sb.Append("<div class=\"c\">");
-        for (int i = 0; i < 6; i++) sb.Append("<div class=\"item\"></div>");
-        sb.Append("</div>");
-        return sb.ToString();
-    }
-
-    private static async Task<(double X, double Y)[]> GetClientRects(PW.IPage page, string containerSelector, string itemSelector)
-    {
-        var container = await page.QuerySelectorAsync(containerSelector);
-        var cbox = await container!.EvaluateAsync<dynamic>("e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top }; }");
+        var container = await page.QuerySelectorAsync(".c");
+        var cbox = await container!.EvaluateAsync<dynamic>(
+            "e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top }; }");
         double cx = (double)cbox.x;
         double cy = (double)cbox.y;
-        var handles = await page.QuerySelectorAllAsync(itemSelector);
+
+        var handles = await page.QuerySelectorAllAsync(".c > .i");
         var list = new List<(double X, double Y)>();
         foreach (var h in handles)
         {
-            var box = await h.EvaluateAsync<dynamic>("e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top }; }");
-            double x = (double)box.x - cx;
-            double y = (double)box.y - cy;
-            list.Add((x, y));
+            var visible = await h.EvaluateAsync<bool>(
+                "e => { const s = getComputedStyle(e); return s.display !== 'none'; }");
+            if (!visible) continue;
+            var box = await h.EvaluateAsync<dynamic>(
+                "e => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top }; }");
+            list.Add(((double)box.x - cx, (double)box.y - cy));
         }
         return list.ToArray();
     }
 
-    private sealed class DummyNode : ILayoutNode
+    private static string Diagnostics(
+        string name,
+        IReadOnlyList<(double X, double Y)> reference,
+        IReadOnlyList<(double X, double Y)> ours)
     {
-        private readonly Size _size;
-        public Rect ArrangedRect { get; private set; }
-        public DummyNode(double w, double h) { _size = new Size(w, h); }
-        public Size Measure(in Size available) => _size;
-        public void Arrange(in Rect finalRect) { ArrangedRect = finalRect; }
+        var sb = new StringBuilder();
+        sb.AppendLine($"Browser parity mismatch for scenario '{name}' (tolerance {ParityScenarios.PositionTolerancePx}px).");
+        sb.AppendLine("idx |   browser (x,y)      |     andytui (x,y)    |  dx     dy");
+        int n = Math.Max(reference.Count, ours.Count);
+        for (int i = 0; i < n; i++)
+        {
+            var e = i < reference.Count ? reference[i] : (double.NaN, double.NaN);
+            var o = i < ours.Count ? ours[i] : (double.NaN, double.NaN);
+            sb.AppendLine($"{i,3} | ({e.Item1,7:0.##},{e.Item2,7:0.##}) | ({o.Item1,7:0.##},{o.Item2,7:0.##}) | {o.Item1 - e.Item1,6:0.##} {o.Item2 - e.Item2,6:0.##}");
+        }
+        return sb.ToString();
     }
 }
