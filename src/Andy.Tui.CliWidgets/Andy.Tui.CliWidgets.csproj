@@ -6,8 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    Reference the concrete libraries whose namespaces CLI widgets consume at
+    compile time. The umbrella Andy.Tui package marks these references
+    PrivateAssets="all", so referencing only the umbrella does not surface
+    DisplayList/Layout/Widgets types to consumers. Declaring them explicitly
+    keeps the project references an accurate description of compile-time
+    dependencies and avoids relying on transitive build assets.
+  -->
   <ItemGroup>
-    <ProjectReference Include="../Andy.Tui/Andy.Tui.csproj" />
     <ProjectReference Include="../Andy.Tui.DisplayList/Andy.Tui.DisplayList.csproj" />
     <ProjectReference Include="../Andy.Tui.Layout/Andy.Tui.Layout.csproj" />
     <ProjectReference Include="../Andy.Tui.Widgets/Andy.Tui.Widgets.csproj" />
