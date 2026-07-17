@@ -156,47 +156,65 @@ public sealed class TtyCompositor : ICompositor
     public IReadOnlyList<RowRun> RowRuns(CellGrid grid, IReadOnlyList<DirtyRect> dirty)
     {
         var runs = new List<RowRun>();
+        // Every dirty rectangle must contribute all of its clipped rows, so track
+        // which cells have already been emitted. Overlapping rectangles then
+        // produce each cell exactly once, keeping output correct and metrics
+        // (bytes/run counts) from being inflated by duplicates.
+        var emitted = new bool[grid.Width * grid.Height];
+
         foreach (var dr in dirty)
         {
-            int row = dr.Y;
-            int x = dr.X;
-            int end = dr.X + dr.Width;
-            while (x < end)
+            // Clip the rectangle to the grid so negative offsets or oversized
+            // damage never read out of bounds. Height is honored here: a
+            // multi-row rectangle iterates every clipped row, and a zero-height
+            // (or otherwise empty) rectangle contributes nothing.
+            int rowStart = Math.Max(0, dr.Y);
+            int rowEnd = Math.Min(grid.Height, dr.Y + dr.Height);
+            int colStart = Math.Max(0, dr.X);
+            int colEnd = Math.Min(grid.Width, dr.X + dr.Width);
+            if (colStart >= colEnd) continue;
+
+            for (int row = rowStart; row < rowEnd; row++)
             {
-                var cell = grid[x, row];
-                var start = x;
-                var attrs = cell.Attrs;
-                var fg = cell.Fg;
-                var bg = cell.Bg;
-                var text = new System.Text.StringBuilder();
-                while (x < end && x < grid.Width) // Ensure we don't exceed grid width
+                int rowBase = row * grid.Width;
+                int x = colStart;
+                while (x < colEnd)
                 {
-                    var c2 = grid[x, row];
-                    if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg) break;
-                    // Use space for null graphemes to maintain correct text length
-                    text.Append(c2.Grapheme ?? " ");
-                    x++;
-                }
+                    // Skip any cell an earlier overlapping rectangle already emitted.
+                    if (emitted[rowBase + x]) { x++; continue; }
 
-                var runText = text.ToString();
+                    var cell = grid[x, row];
+                    int start = x;
+                    var attrs = cell.Attrs;
+                    var fg = cell.Fg;
+                    var bg = cell.Bg;
+                    var text = new System.Text.StringBuilder();
 
-                // Ensure we never exceed grid width
-                if (start >= grid.Width)
-                    continue; // Skip runs that start past the grid
+                    // A run extends while attributes/colors match and no cell has
+                    // already been emitted. Each grid cell advances the column by
+                    // one, so ColStart/ColEnd stay in terminal-cell units even when
+                    // a wide glyph carries a multi-unit grapheme or a cell holds
+                    // combining marks (which never widen the column span).
+                    while (x < colEnd && !emitted[rowBase + x])
+                    {
+                        var c2 = grid[x, row];
+                        if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg) break;
+                        // Use a space for null (untouched/transparent) graphemes so a
+                        // full repaint clears the cell. Wide-glyph continuation cells
+                        // carry an empty grapheme and contribute no text while still
+                        // consuming their column.
+                        text.Append(c2.Grapheme ?? " ");
+                        emitted[rowBase + x] = true;
+                        x++;
+                    }
 
-                // Truncate text if needed
-                int maxLen = grid.Width - start;
-                if (runText.Length > maxLen)
-                {
-                    runText = runText.Substring(0, maxLen);
-                }
-
-                // Only add non-empty runs
-                if (runText.Length > 0)
-                {
-                    // ColEnd must match the actual text length
-                    var actualEnd = start + runText.Length;
-                    runs.Add(new RowRun(row, start, actualEnd, attrs, fg, bg, runText));
+                    var runText = text.ToString();
+                    if (runText.Length > 0)
+                    {
+                        // ColEnd is the exclusive terminal column after the run,
+                        // derived from cell columns rather than UTF-16 length.
+                        runs.Add(new RowRun(row, start, x, attrs, fg, bg, runText));
+                    }
                 }
             }
         }
