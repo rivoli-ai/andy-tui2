@@ -6,6 +6,14 @@ public sealed class TtyCompositor : ICompositor
 {
     public CellGrid Composite(Andy.Tui.DisplayList.DisplayList dl, (int Width, int Height) viewport)
     {
+        // Validate viewport dimensions at the public boundary. A non-positive
+        // viewport has no representable cells, so reject it deterministically
+        // instead of letting an out-of-range allocation surface deeper down.
+        if (viewport.Width <= 0)
+            throw new ArgumentOutOfRangeException(nameof(viewport), viewport.Width, "Viewport width must be positive.");
+        if (viewport.Height <= 0)
+            throw new ArgumentOutOfRangeException(nameof(viewport), viewport.Height, "Viewport height must be positive.");
+
         var grid = new CellGrid(viewport.Width, viewport.Height);
         var clipStack = new Stack<(int x, int y, int w, int h)>();
         clipStack.Push((0, 0, viewport.Width, viewport.Height));
@@ -221,15 +229,30 @@ public sealed class TtyCompositor : ICompositor
         return runs;
     }
 
+    // Intersect a clip rectangle with the drawing op's rectangle AND the grid
+    // bounds, producing a half-open range [x0,x1) x [y0,y1). Returns false when
+    // the result is empty so callers can bail out before touching any cell.
+    // Negative positions/dimensions collapse to an empty range here rather than
+    // producing negative or out-of-range indices downstream.
+    private static bool ClipToGrid(
+        CellGrid grid, (int x, int y, int w, int h) clip,
+        int rx, int ry, int rw, int rh,
+        out int x0, out int y0, out int x1, out int y1)
+    {
+        x0 = Math.Max(0, Math.Max(clip.x, rx));
+        y0 = Math.Max(0, Math.Max(clip.y, ry));
+        x1 = Math.Min(grid.Width, Math.Min(clip.x + clip.w, rx + rw));
+        y1 = Math.Min(grid.Height, Math.Min(clip.y + clip.h, ry + rh));
+        return x1 > x0 && y1 > y0;
+    }
+
     private static void DrawRect(ref CellGrid grid, (int x, int y, int w, int h) clip, Rect r)
     {
-        int x0 = Math.Max(clip.x, r.X);
-        int y0 = Math.Max(clip.y, r.Y);
-        int x1 = Math.Min(clip.x + clip.w, r.X + r.Width);
-        int y1 = Math.Min(clip.y + clip.h, r.Y + r.Height);
         // A transparent fill (null) paints nothing: it leaves the cells underneath
         // (ultimately the terminal's default background) visible.
         if (r.Fill is null) return;
+        if (!ClipToGrid(grid, clip, r.X, r.Y, r.Width, r.Height, out int x0, out int y0, out int x1, out int y1))
+            return;
         var fill = r.Fill.Value;
         for (int y = y0; y < y1; y++)
         {
@@ -244,10 +267,13 @@ public sealed class TtyCompositor : ICompositor
 
     private static void DrawBorder(ref CellGrid grid, (int x, int y, int w, int h) clip, Border b)
     {
-        int x0 = Math.Max(clip.x, b.X);
-        int y0 = Math.Max(clip.y, b.Y);
-        int x1 = Math.Min(clip.x + clip.w, b.X + b.Width);
-        int y1 = Math.Min(clip.y + clip.h, b.Y + b.Height);
+        // Clip the border to the current clip AND the grid. When the border is
+        // empty, fully off-screen, or has non-positive size the intersection is
+        // empty and we return before writing any edge or corner cell — this is
+        // what prevents the unconditional corner writes below from indexing a
+        // negative or out-of-range cell.
+        if (!ClipToGrid(grid, clip, b.X, b.Y, b.Width, b.Height, out int x0, out int y0, out int x1, out int y1))
+            return;
         for (int x = x0; x < x1; x++)
         {
             grid[x, y0] = new Cell("─", 1, b.Color, grid[x, y0].Bg, CellAttrFlags.None);
