@@ -128,12 +128,15 @@ public class TtyStreamDecoderIncrementalTests
         var opts = new TtyStreamDecoderOptions { MaxEscapeLength = 16 };
         var dec = new TtyStreamDecoder(opts);
         var junk = new string('1', 200);
-        // A CSI that never terminates within the limit, followed by a normal key.
+        // A CSI whose parameters overflow the limit before its final byte 'Z'.
         var stream = Bytes("[" + junk + "Z");
         var events = dec.Push(stream).ToList();
         events.AddRange(dec.Flush());
-        // The malformed sequence produced no event; recovery leaves the decoder usable.
-        Assert.DoesNotContain(events, e => e is PasteEvent);
+        // The malformed sequence must be discarded whole: no phantom keys from the ~184
+        // parameter bytes that overflowed the limit, and no PasteEvent either.
+        Assert.Empty(events);
+
+        // Recovery leaves the decoder usable for subsequent input.
         var next = dec.Push(Bytes("q")).ToList();
         Assert.Equal("q", Assert.IsType<KeyEvent>(Assert.Single(next)).Key);
     }

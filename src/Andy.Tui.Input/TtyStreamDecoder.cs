@@ -44,6 +44,12 @@ public sealed class TtyStreamDecoder
     private bool _inPaste;
     private readonly List<byte> _paste = new();
 
+    // Set after an escape sequence overflows its length limit. While true, incoming bytes
+    // are discarded until a safe resynchronization boundary (the next ESC, which starts a
+    // fresh sequence, or a CSI final byte in 0x40..0x7e that ends the malformed one) so
+    // that leftover parameter bytes are never re-emitted as phantom key events.
+    private bool _discarding;
+
     public TtyStreamDecoder(TtyStreamDecoderOptions? options = null)
     {
         _options = options ?? new TtyStreamDecoderOptions();
@@ -68,6 +74,13 @@ public sealed class TtyStreamDecoder
 
         while (i < len)
         {
+            if (_discarding)
+            {
+                i = DiscardUntilBoundary(data, i);
+                if (_discarding) break; // boundary not in this chunk: consumed all, keep discarding
+                continue;
+            }
+
             if (_inPaste)
             {
                 int consumedTo = HandlePaste(data, i, events, out bool needMore);
@@ -133,6 +146,23 @@ public sealed class TtyStreamDecoder
         }
 
         return events;
+    }
+
+    // Skip bytes of an overflowed escape sequence until a resynchronization boundary.
+    // Stops before the next ESC (which begins a fresh sequence) or after a CSI final byte
+    // in 0x40..0x7e (which ends the malformed one). Returns the resume index; clears
+    // _discarding once a boundary is found, otherwise consumes the whole chunk.
+    private int DiscardUntilBoundary(byte[] data, int i)
+    {
+        int len = data.Length;
+        while (i < len)
+        {
+            byte b = data[i];
+            if (b == 0x1b) { _discarding = false; return i; }        // ESC: start a new sequence here
+            if (b >= 0x40 && b <= 0x7e) { _discarding = false; return i + 1; } // final byte: consume it
+            i++;
+        }
+        return i; // no boundary in this chunk; remain in discard mode
     }
 
     // Returns the index up to which bytes were consumed. needMore==true means the
@@ -212,7 +242,7 @@ public sealed class TtyStreamDecoder
             int scan = j + 1;
             while (scan < len && data[scan] != (byte)'M' && data[scan] != (byte)'m')
             {
-                if (scan - (j + 1) >= _options.MaxEscapeLength) return scan - i; // overflow: drop
+                if (scan - (j + 1) >= _options.MaxEscapeLength) { _discarding = true; return scan - i; } // overflow: discard to boundary
                 scan++;
             }
             if (scan >= len) return -1; // need the final byte
@@ -228,7 +258,7 @@ public sealed class TtyStreamDecoder
         {
             byte c = data[p];
             if (c >= 0x40 && c <= 0x7e) break; // final byte
-            if (p - j >= _options.MaxEscapeLength) return p - i; // overflow: drop
+            if (p - j >= _options.MaxEscapeLength) { _discarding = true; return p - i; } // overflow: discard to boundary
             p++;
         }
         if (p >= len) return -1; // need the final byte
