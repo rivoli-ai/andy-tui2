@@ -7,18 +7,24 @@
 A modern, reactive TUI framework for .NET 8 with declarative components, reactive bindings, a pragmatic CSS subset, a unified rendering pipeline, and first-class observability. Built for high-performance terminal applications, dashboards, and real-time log viewers.
 
 > ⚠️ **ALPHA RELEASE WARNING** ⚠️
-> 
-> This software is in ALPHA stage. **NO GUARANTEES** are made about its functionality, stability, or safety.
-> 
-> **CRITICAL WARNINGS:**
-> - This library performs **DESTRUCTIVE OPERATIONS** on files and directories
-> - Permission management is **NOT FULLY TESTED** and may have security vulnerabilities
-> - **DO NOT USE** in production environments
-> - **DO NOT USE** on systems with critical or irreplaceable data
-> - **DO NOT USE** on systems without complete, verified backups
-> - The authors assume **NO RESPONSIBILITY** for data loss, system damage, or security breaches
-> 
-> **USE AT YOUR OWN RISK**
+>
+> This software is in ALPHA stage. Public APIs are unstable and may change
+> without notice, and behavior is not yet guaranteed. Do not depend on it in
+> production.
+>
+> **Terminal-safety notes** (this library renders to the terminal; it does
+> **not** delete, move, or overwrite files — the only filesystem access in the
+> shipped source is read-only directory listing in `FileDialog`):
+> - The renderer writes ANSI/VT escape sequences to stdout and may switch the
+>   terminal into raw mode and the alternate screen buffer. An application that
+>   exits abnormally can leave the terminal in a modified state (no echo, hidden
+>   cursor, alternate screen). Restore it with `reset` or `stty sane` if needed.
+> - Always pair terminal setup with cleanup (restore cooked mode, show the
+>   cursor, leave the alternate screen) so a crash does not corrupt the session.
+> - Rendering untrusted text can emit control/escape sequences; sanitize
+>   external content before displaying it.
+> - The authors assume **NO RESPONSIBILITY** for terminal-state issues or other
+>   defects while the project is in alpha.
 
 ## Features
 - **Reactive Core**: Signals, computed values, effects, and data bindings
@@ -26,11 +32,11 @@ A modern, reactive TUI framework for .NET 8 with declarative components, reactiv
 - **CSS Styling**: Subset of CSS with cascade, specificity, variables, pseudo-classes
 - **Flex Layout**: Modern flexbox-based layout engine
 - **Rich Text**: Unicode-aware text rendering with grapheme support
-- **Widget Library**: 80+ pre-built widgets (tables, forms, charts, etc.)
-- **Unified Pipeline**: Compose → Style → Layout → DisplayList → Compositor → Backend
-- **Terminal Backend**: Full ANSI/escape sequence support
-- **Observability**: Built-in logging, tracing, performance monitoring
-- **Testing**: Deterministic mode for reliable unit tests
+- **Widget Library**: 70+ rendering widgets across `Andy.Tui.Widgets` and `Andy.Tui.CliWidgets` (tables, charts, dialogs, editors, etc.) — see the [Widget Catalog](docs/WIDGETS.md)
+- **Rendering Pipeline**: Compose → Style → Layout → DisplayList → Compositor → Backend
+- **Terminal Backend**: ANSI/VT escape-sequence output via `AnsiEncoder` (color depth and capabilities detected at runtime)
+- **Observability**: Built-in logging, tracing, and performance metrics
+- **Testing**: Deterministic frame rendering for reliable unit tests
 
 ## Repository structure
 - `src/` — library projects (packable)
@@ -123,18 +129,27 @@ dotnet nuget push ./nupkg/Andy.Tui.*.nupkg -k <NUGET_API_KEY> -s https://api.nug
 
 - 📖 [Getting Started](docs/GETTING_STARTED.md) - Installation, basic concepts, and examples
 - 🏗️ [Architecture](docs/ARCHITECTURE.md) - System design and rendering pipeline
-- 🎨 [Widget Catalog](docs/WIDGETS.md) - Complete list of 80+ UI components
+- 🎨 [Widget Catalog](docs/WIDGETS.md) - Implemented widgets, mapped to their source files
 - 📚 [Documentation Index](docs/README.md) - Full documentation overview
 
 ## Current Status
 
 ### Phase Progress
-- ✅ **Phase 0**: Foundations - Complete
-- ✅ **Phase 1**: Visual Core - Complete  
-- ✅ **Phase 2**: Rendering Core - Complete
-- ✅ **Phase 3**: Interactivity & Animations - Complete
-- ✅ **Phase 4**: Virtualization & Widgets - Complete (80+ widgets implemented)
-- 🚧 **Phase 5**: Additional Backends - Planned
+
+The core pipeline (compose, style, layout, display list, compositor, terminal
+backend), the reactive core, virtualization, and the widget library are
+implemented and covered by the test suite. Documentation, test-quality, and
+API-accuracy work is tracked under epic
+[#18](https://github.com/rivoli-ai/andy-tui2/issues/18) and remains in progress,
+so the phase labels below are directional rather than a guarantee of completion.
+
+- 🟢 **Phase 0**: Foundations - implemented
+- 🟢 **Phase 1**: Visual Core - implemented
+- 🟢 **Phase 2**: Rendering Core - implemented
+- 🟢 **Phase 3**: Interactivity & Animations - implemented
+- 🟢 **Phase 4**: Virtualization & Widgets - implemented (70+ rendering widgets; see the [Widget Catalog](docs/WIDGETS.md))
+- 🚧 **Phase 5**: Additional Backends - planned (only the terminal backend ships today)
+- 🚧 **Quality & docs hardening**: in progress ([#18](https://github.com/rivoli-ai/andy-tui2/issues/18))
 
 ### CI/CD Status
 - ✅ Automated builds on push/PR
@@ -166,4 +181,4 @@ Apache-2.0 License. See [LICENSE](LICENSE) file for details.
 
 ---
 
-**Remember**: This is ALPHA software. Use at your own risk and always maintain backups.
+**Remember**: This is ALPHA software with unstable APIs. If an app exits abnormally, restore your terminal with `reset` or `stty sane`.
