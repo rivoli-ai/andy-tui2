@@ -127,13 +127,13 @@ public class FlexLayoutTests
         var container = ResolvedStyle.Default with { FlexDirection = FlexDirection.Column, AlignItems = AlignItems.Center };
         var n1 = new FixedNode(4, 3);
         var n2 = new FixedNode(6, 3);
-        // container width 20: max item width = 6; centered => (20-6)/2 = 7
+        // container width 20; browser parity: each item centered individually.
         FlexLayout.Layout(new Size(20, 20), container, new List<(ILayoutNode, ResolvedStyle)>
         {
             (n1, ResolvedStyle.Default), (n2, ResolvedStyle.Default)
         });
-        Assert.InRange(n1.ArrangedRect.X, 7 - 1e-6, 7 + 1e-6);
-        Assert.InRange(n2.ArrangedRect.X, 7 - 1e-6, 7 + 1e-6);
+        Assert.InRange(n1.ArrangedRect.X, 8 - 1e-6, 8 + 1e-6); // (20-4)/2
+        Assert.InRange(n2.ArrangedRect.X, 7 - 1e-6, 7 + 1e-6); // (20-6)/2
     }
 
     [Fact]
@@ -356,9 +356,11 @@ public class FlexLayoutTests
             (n1, ResolvedStyle.Default),
             (n2, ResolvedStyle.Default)
         });
-        var expectedY = (10 - 3) / 2.0; // 3.5
-        Assert.InRange(n1.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-        Assert.InRange(n2.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
+        // Browser parity: each item is centered individually within the line cross size.
+        var expectedY1 = (10 - 2) / 2.0; // 4
+        var expectedY2 = (10 - 3) / 2.0; // 3.5
+        Assert.InRange(n1.ArrangedRect.Y, expectedY1 - 1e-6, expectedY1 + 1e-6);
+        Assert.InRange(n2.ArrangedRect.Y, expectedY2 - 1e-6, expectedY2 + 1e-6);
     }
 
     [Fact]
@@ -372,9 +374,11 @@ public class FlexLayoutTests
             (n1, ResolvedStyle.Default),
             (n2, ResolvedStyle.Default)
         });
-        var expectedY = 10 - 3; // 7
-        Assert.InRange(n1.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-        Assert.InRange(n2.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
+        // Browser parity: each item's bottom aligns to the line cross end individually.
+        var expectedY1 = 10 - 2; // 8
+        var expectedY2 = 10 - 3; // 7
+        Assert.InRange(n1.ArrangedRect.Y, expectedY1 - 1e-6, expectedY1 + 1e-6);
+        Assert.InRange(n2.ArrangedRect.Y, expectedY2 - 1e-6, expectedY2 + 1e-6);
     }
 
     [Fact]

@@ -3,686 +3,551 @@ using ResolvedStyle = Andy.Tui.Style.ResolvedStyle;
 namespace Andy.Tui.Layout;
 
 /// <summary>
-/// Placeholder flex layout algorithm entry. Will be expanded in Phase 1.
+/// Flexbox layout algorithm honoring the resolved style properties exposed by the public API.
+/// Supports container padding, per-child margins, <c>display:none</c>, explicit width/height,
+/// flex-basis, min/max constraints, grow/shrink distribution (row and column), wrap and
+/// wrap-reverse, justify-content, align-items/align-self/align-content, and overflow clipping.
 /// </summary>
 public static class FlexLayout
 {
+    private const double Eps = 1e-6;
+
     public static void Layout(in Size containerSize, ResolvedStyle containerStyle, IReadOnlyList<(ILayoutNode Node, ResolvedStyle Style)> children)
     {
-        // Helper: clip a rect to container when overflow hidden (avoid capturing 'in' parameter)
-        var containerWidth = containerSize.Width;
-        var containerHeight = containerSize.Height;
+        // --- Container padding -> content box ---
+        double padL = containerStyle.Padding.Left.Resolve(containerSize.Width);
+        double padT = containerStyle.Padding.Top.Resolve(containerSize.Height);
+        double padR = containerStyle.Padding.Right.Resolve(containerSize.Width);
+        double padB = containerStyle.Padding.Bottom.Resolve(containerSize.Height);
+        double originX = padL;
+        double originY = padT;
+        double contentW = Math.Max(0, containerSize.Width - padL - padR);
+        double contentH = Math.Max(0, containerSize.Height - padT - padB);
+
+        // --- Overflow clipping (to the content box) ---
         bool isOverflowHidden = containerStyle.Overflow == Andy.Tui.Style.Overflow.Hidden;
+        double clipRight = originX + contentW;
+        double clipBottom = originY + contentH;
         Rect ClipIfNeeded(Rect r)
         {
             if (!isOverflowHidden) return r;
-            double maxW = Math.Max(0, containerWidth - r.X);
-            double maxH = Math.Max(0, containerHeight - r.Y);
-            double w = Math.Min(r.Width, maxW);
-            double h = Math.Min(r.Height, maxH);
+            double w = Math.Min(r.Width, Math.Max(0, clipRight - r.X));
+            double h = Math.Min(r.Height, Math.Max(0, clipBottom - r.Y));
             return new Rect(r.X, r.Y, w, h);
         }
-        // Minimal row-direction layout that respects 'order' and places items sequentially with gap and basic justify center.
-        // Future work: wrapping, alignments (full), grow/shrink, column direction, constraints, etc.
 
         bool isRowDirection = containerStyle.FlexDirection == Andy.Tui.Style.FlexDirection.Row;
 
-        // Sort by order, stable to preserve original order among equals
+        // Sort by order (stable) and drop display:none items so they occupy no space.
         var ordered = children
             .Select((c, idx) => (c.Node, c.Style, idx))
+            .Where(t => t.Style.Display != Andy.Tui.Style.Display.None)
             .OrderBy(t => t.Style.Order)
             .ThenBy(t => t.idx)
             .ToArray();
 
-        // Measure
-        var availableForMeasure = new Size(containerSize.Width, containerSize.Height);
+        // Measure against the content box, then apply explicit width/height as the base size.
+        var availableForMeasure = new Size(contentW, contentH);
         var measured = new (ILayoutNode node, ResolvedStyle style, Size size)[ordered.Length];
         for (int mi = 0; mi < ordered.Length; mi++)
         {
             var it = ordered[mi];
-            measured[mi] = (it.Node, it.Style, it.Node.Measure(availableForMeasure));
+            var m = it.Node.Measure(availableForMeasure);
+            double w = m.Width;
+            double h = m.Height;
+            if (!it.Style.Width.IsAuto)
+            {
+                var v = it.Style.Width.Value!.Value;
+                w = v.IsPercent ? v.Resolve(contentW) : v.Pixels;
+            }
+            if (!it.Style.Height.IsAuto)
+            {
+                var v = it.Style.Height.Value!.Value;
+                h = v.IsPercent ? v.Resolve(contentH) : v.Pixels;
+            }
+            measured[mi] = (it.Node, it.Style, new Size(w, h));
         }
 
-        // Build lines when wrap is enabled (row direction). For column direction (MVP), treat as single line (no wrap yet).
+        // Per-item resolved margins (horizontal against content width, vertical against content height).
+        double MarginLeft(int i) => measured[i].style.Margin.Left.Resolve(contentW);
+        double MarginRight(int i) => measured[i].style.Margin.Right.Resolve(contentW);
+        double MarginTop(int i) => measured[i].style.Margin.Top.Resolve(contentH);
+        double MarginBottom(int i) => measured[i].style.Margin.Bottom.Resolve(contentH);
+
+        // Outer extents including margins (used for line breaking and cross-size measurement).
+        double OuterMain(int i) => isRowDirection
+            ? MarginLeft(i) + measured[i].size.Width + MarginRight(i)
+            : MarginTop(i) + measured[i].size.Height + MarginBottom(i);
+        double OuterCross(int i) => isRowDirection
+            ? MarginTop(i) + measured[i].size.Height + MarginBottom(i)
+            : MarginLeft(i) + measured[i].size.Width + MarginRight(i);
+
+        // Map align-self (with Auto falling back to the container's align-items).
+        Andy.Tui.Style.AlignItems EffectiveAlign(Andy.Tui.Style.AlignSelf self) => self switch
+        {
+            Andy.Tui.Style.AlignSelf.FlexStart => Andy.Tui.Style.AlignItems.FlexStart,
+            Andy.Tui.Style.AlignSelf.FlexEnd => Andy.Tui.Style.AlignItems.FlexEnd,
+            Andy.Tui.Style.AlignSelf.Center => Andy.Tui.Style.AlignItems.Center,
+            Andy.Tui.Style.AlignSelf.Stretch => Andy.Tui.Style.AlignItems.Stretch,
+            Andy.Tui.Style.AlignSelf.Baseline => Andy.Tui.Style.AlignItems.Baseline,
+            _ => containerStyle.AlignItems,
+        };
+
+        // --- Break into flex lines along the main axis (margins counted). ---
         var lines = new List<List<int>>();
-        if (isRowDirection)
         {
             var current = new List<int>();
-            double currentWidth = 0;
+            double running = 0;
+            double mainGap = isRowDirection ? containerStyle.ColumnGap.Pixels : containerStyle.RowGap.Pixels;
+            double mainContent = isRowDirection ? contentW : contentH;
+            bool wraps = containerStyle.FlexWrap != Andy.Tui.Style.FlexWrap.Nowrap;
             for (int i = 0; i < measured.Length; i++)
             {
-                var w = measured[i].size.Width;
-                var projected = currentWidth + (current.Count > 0 ? containerStyle.ColumnGap.Pixels : 0) + w;
-                if (containerStyle.FlexWrap == Andy.Tui.Style.FlexWrap.Wrap && current.Count > 0 && projected > containerSize.Width)
+                double outer = OuterMain(i);
+                double projected = running + (current.Count > 0 ? mainGap : 0) + outer;
+                if (wraps && current.Count > 0 && projected > mainContent + Eps)
                 {
                     lines.Add(current);
                     current = new List<int>();
-                    currentWidth = 0;
+                    running = 0;
                 }
-                if (current.Count > 0)
-                {
-                    currentWidth += containerStyle.ColumnGap.Pixels;
-                }
+                if (current.Count > 0) running += mainGap;
                 current.Add(i);
-                currentWidth += w;
-            }
-            if (current.Count > 0) lines.Add(current);
-        }
-        else
-        {
-            // Build columns when wrap is enabled for column direction
-            var current = new List<int>();
-            double currentHeight = 0;
-            for (int i = 0; i < measured.Length; i++)
-            {
-                var h = measured[i].size.Height;
-                var projected = currentHeight + (current.Count > 0 ? containerStyle.RowGap.Pixels : 0) + h;
-                if (containerStyle.FlexWrap == Andy.Tui.Style.FlexWrap.Wrap && current.Count > 0 && projected > containerSize.Height)
-                {
-                    lines.Add(current);
-                    current = new List<int>();
-                    currentHeight = 0;
-                }
-                if (current.Count > 0)
-                {
-                    currentHeight += containerStyle.RowGap.Pixels;
-                }
-                current.Add(i);
-                currentHeight += h;
+                running += outer;
             }
             if (current.Count > 0) lines.Add(current);
         }
 
-        // Align-items base offset for single-line case only; for multi-line, align-content governs cross-axis placement
-        double singleLineCrossBaseOffset = 0;
-        if (isRowDirection)
-        {
-            double maxItemHeight = measured.Length > 0 ? measured.Max(m => m.size.Height) : 0;
-            switch (containerStyle.AlignItems)
-            {
-                case Andy.Tui.Style.AlignItems.Center:
-                    singleLineCrossBaseOffset = Math.Max(0, (containerSize.Height - maxItemHeight) / 2.0);
-                    break;
-                case Andy.Tui.Style.AlignItems.FlexEnd:
-                    singleLineCrossBaseOffset = Math.Max(0, containerSize.Height - maxItemHeight);
-                    break;
-                case Andy.Tui.Style.AlignItems.Baseline:
-                    singleLineCrossBaseOffset = 0; // TODO: implement true baseline; approximate as flex-start
-                    break;
-                case Andy.Tui.Style.AlignItems.Stretch:
-                case Andy.Tui.Style.AlignItems.FlexStart:
-                default:
-                    singleLineCrossBaseOffset = 0;
-                    break;
-            }
-        }
-        else
-        {
-            double maxItemWidth = measured.Length > 0 ? measured.Max(m => m.size.Width) : 0;
-            switch (containerStyle.AlignItems)
-            {
-                case Andy.Tui.Style.AlignItems.Center:
-                    singleLineCrossBaseOffset = Math.Max(0, (containerSize.Width - maxItemWidth) / 2.0);
-                    break;
-                case Andy.Tui.Style.AlignItems.FlexEnd:
-                    singleLineCrossBaseOffset = Math.Max(0, containerSize.Width - maxItemWidth);
-                    break;
-                case Andy.Tui.Style.AlignItems.Baseline:
-                    singleLineCrossBaseOffset = 0; // N/A in column cross-axis; approximate flex-start
-                    break;
-                case Andy.Tui.Style.AlignItems.Stretch:
-                case Andy.Tui.Style.AlignItems.FlexStart:
-                default:
-                    singleLineCrossBaseOffset = 0;
-                    break;
-            }
-        }
-
-        // Prepare per-line heights (row) or widths (column) and compute align-content distribution for multi-line
+        // Cross size of each line = max outer cross extent among its items.
         var lineSizes = new double[lines.Count];
-        if (isRowDirection)
+        for (int li = 0; li < lines.Count; li++)
         {
-            for (int li = 0; li < lines.Count; li++)
-            {
-                lineSizes[li] = lines[li].Count > 0 ? lines[li].Max(i => measured[i].size.Height) : 0;
-            }
-        }
-        else
-        {
-            // Column direction: size along cross-axis is column width (max item width per column)
-            for (int li = 0; li < lines.Count; li++)
-            {
-                lineSizes[li] = lines[li].Count > 0 ? lines[li].Max(i => measured[i].size.Width) : 0;
-            }
+            lineSizes[li] = lines[li].Count > 0 ? lines[li].Max(i => OuterCross(i)) : 0;
         }
 
-        // Compute line offsets along cross-axis for multi-lines (align-content)
+        // Single-line cross base offset from align-items (line placed within the container cross size).
+        double maxOuterCross = measured.Length > 0 ? Enumerable.Range(0, measured.Length).Max(i => OuterCross(i)) : 0;
+        double containerCross = isRowDirection ? contentH : contentW;
+        double singleLineCrossBaseOffset = containerStyle.AlignItems switch
+        {
+            Andy.Tui.Style.AlignItems.Center => Math.Max(0, (containerCross - maxOuterCross) / 2.0),
+            Andy.Tui.Style.AlignItems.FlexEnd => Math.Max(0, containerCross - maxOuterCross),
+            _ => 0,
+        };
+
+        // --- Cross-axis line placement (align-content) for multi-line. ---
         var lineOffsetsY = new double[lines.Count];
         var perLineExtraHeight = new double[lines.Count];
         var lineOffsetsX = new double[lines.Count];
         var perLineExtraWidth = new double[lines.Count];
+
         if (isRowDirection)
         {
-            double baseRowGap = containerStyle.RowGap.Pixels;
-            double sumHeights = lineSizes.Sum();
-            double yStart = 0;
-            double betweenGap = baseRowGap;
-            if (lines.Count == 1)
-            {
-                yStart = 0;
-                betweenGap = baseRowGap;
-            }
-            else
-            {
-                double baseTotal = sumHeights + baseRowGap * (lines.Count - 1);
-                switch (containerStyle.AlignContent)
-                {
-                    case Andy.Tui.Style.AlignContent.FlexStart:
-                        yStart = 0;
-                        betweenGap = baseRowGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.Center:
-                        yStart = Math.Max(0, (containerSize.Height - baseTotal) / 2.0);
-                        betweenGap = baseRowGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.FlexEnd:
-                        yStart = Math.Max(0, containerSize.Height - baseTotal);
-                        betweenGap = baseRowGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.SpaceBetween:
-                        if (lines.Count > 1)
-                        {
-                            betweenGap = Math.Max(0, (containerSize.Height - sumHeights) / (lines.Count - 1));
-                        }
-                        else
-                        {
-                            betweenGap = 0;
-                        }
-                        yStart = 0;
-                        break;
-                    case Andy.Tui.Style.AlignContent.SpaceAround:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Height - sumHeights) / (lines.Count));
-                            yStart = spacing / 2.0;
-                            betweenGap = spacing;
-                            break;
-                        }
-                    case Andy.Tui.Style.AlignContent.SpaceEvenly:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Height - sumHeights) / (lines.Count + 1));
-                            yStart = spacing;
-                            betweenGap = spacing;
-                            break;
-                        }
-                    case Andy.Tui.Style.AlignContent.Stretch:
-                    default:
-                        {
-                            // Distribute extra space equally to line heights
-                            double extra = Math.Max(0, containerSize.Height - baseTotal);
-                            double add = lines.Count > 0 ? extra / lines.Count : 0;
-                            for (int li = 0; li < lines.Count; li++) perLineExtraHeight[li] = add;
-                            yStart = 0;
-                            betweenGap = baseRowGap;
-                            break;
-                        }
-                }
-            }
+            ComputeAlignContent(containerStyle, contentH, containerStyle.RowGap.Pixels, lineSizes, lineOffsetsY, perLineExtraHeight);
+        }
+        else
+        {
+            ComputeAlignContent(containerStyle, contentW, containerStyle.ColumnGap.Pixels, lineSizes, lineOffsetsX, perLineExtraWidth);
+        }
 
-            if (containerStyle.FlexWrap == Andy.Tui.Style.FlexWrap.WrapReverse && lines.Count > 0)
+        // --- Place each line ---
+        for (int li = 0; li < lines.Count; li++)
+        {
+            var idxs = lines[li];
+            int n = idxs.Count;
+            if (n == 0) continue;
+
+            if (isRowDirection)
             {
-                double total = lineSizes.Sum() + perLineExtraHeight.Sum() + betweenGap * Math.Max(0, lines.Count - 1);
-                double yAccum = Math.Max(0, containerSize.Height - total + yStart);
-                for (int li = lines.Count - 1; li >= 0; li--)
+                double mainContent = contentW;
+                double baseGap = containerStyle.ColumnGap.Pixels;
+                double gapCount = Math.Max(0, n - 1);
+
+                var mStart = new double[n];
+                var mEnd = new double[n];
+                var mCrossStart = new double[n];
+                var mCrossEnd = new double[n];
+                var baseMain = new double[n];
+                var minMain = new double[n];
+                var maxMain = new double[n];
+                for (int k = 0; k < n; k++)
                 {
-                    lineOffsetsY[li] = yAccum;
-                    yAccum += lineSizes[li] + perLineExtraHeight[li];
-                    if (li > 0) yAccum += betweenGap;
+                    int i = idxs[k];
+                    var st = measured[i].style;
+                    mStart[k] = MarginLeft(i);
+                    mEnd[k] = MarginRight(i);
+                    mCrossStart[k] = MarginTop(i);
+                    mCrossEnd[k] = MarginBottom(i);
+                    baseMain[k] = st.FlexBasis.IsAuto
+                        ? measured[i].size.Width
+                        : (st.FlexBasis.Value!.Value.IsPercent ? st.FlexBasis.Value.Value.Resolve(mainContent) : st.FlexBasis.Value.Value.Pixels);
+                    minMain[k] = ResolveMin(st.MinWidth, mainContent);
+                    maxMain[k] = ResolveMax(st.MaxWidth, mainContent);
+                }
+
+                var arranged = DistributeMain(idxs, measured, baseMain, minMain, maxMain, mStart, mEnd, gapCount, baseGap, mainContent);
+
+                // Justify computed AFTER final flex sizes are known.
+                double itemsExtent = 0;
+                for (int k = 0; k < n; k++) itemsExtent += arranged[k] + mStart[k] + mEnd[k];
+                ComputeJustify(containerStyle.JustifyContent, mainContent, itemsExtent, gapCount, baseGap, n, out double startX, out double dynamicGap);
+
+                double lineHeight = lineSizes[li] + perLineExtraHeight[li];
+                double baseLineTop = lines.Count == 1 ? singleLineCrossBaseOffset : lineOffsetsY[li];
+
+                // Baselines for baseline alignment.
+                var baselines = new double[n];
+                double lineBaseline = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    var (node, _, size) = measured[idxs[k]];
+                    baselines[k] = node is IBaselineProvider bp ? bp.GetFirstBaseline(in size) : size.Height;
+                    if (baselines[k] > lineBaseline) lineBaseline = baselines[k];
+                }
+
+                double x = startX;
+                for (int k = 0; k < n; k++)
+                {
+                    int i = idxs[k];
+                    var st = measured[i].style;
+                    double w = arranged[k];
+                    double h = measured[i].size.Height;
+                    double outerCross = mCrossStart[k] + h + mCrossEnd[k];
+                    var eff = EffectiveAlign(st.AlignSelf);
+                    double itemY;
+                    switch (eff)
+                    {
+                        case Andy.Tui.Style.AlignItems.Center:
+                            itemY = baseLineTop + (lineHeight - outerCross) / 2.0 + mCrossStart[k];
+                            break;
+                        case Andy.Tui.Style.AlignItems.FlexEnd:
+                            itemY = baseLineTop + (lineHeight - outerCross) + mCrossStart[k];
+                            break;
+                        case Andy.Tui.Style.AlignItems.Baseline:
+                            itemY = baseLineTop + (lineBaseline - baselines[k]) + mCrossStart[k];
+                            break;
+                        case Andy.Tui.Style.AlignItems.Stretch:
+                            if (st.Height.IsAuto) h = Math.Max(h, lineHeight - mCrossStart[k] - mCrossEnd[k]);
+                            itemY = baseLineTop + mCrossStart[k];
+                            break;
+                        default:
+                            itemY = baseLineTop + mCrossStart[k];
+                            break;
+                    }
+                    h = ClampCross(h, st.MinHeight, st.MaxHeight, contentH);
+                    itemY = Math.Max(0, itemY);
+
+                    double itemX = x + mStart[k];
+                    var rect = ClipIfNeeded(new Rect(itemX + originX, itemY + originY, w, h));
+                    measured[i].node.Arrange(rect);
+
+                    x += mStart[k] + w + mEnd[k];
+                    if (k < n - 1) x += dynamicGap;
                 }
             }
             else
             {
-                double yAccum = yStart;
-                for (int li = 0; li < lines.Count; li++)
+                double mainContent = contentH;
+                double baseGap = containerStyle.RowGap.Pixels;
+                double gapCount = Math.Max(0, n - 1);
+
+                var mStart = new double[n];
+                var mEnd = new double[n];
+                var mCrossStart = new double[n];
+                var mCrossEnd = new double[n];
+                var baseMain = new double[n];
+                var minMain = new double[n];
+                var maxMain = new double[n];
+                for (int k = 0; k < n; k++)
                 {
-                    lineOffsetsY[li] = yAccum;
-                    yAccum += lineSizes[li] + perLineExtraHeight[li];
-                    if (li < lines.Count - 1) yAccum += betweenGap;
+                    int i = idxs[k];
+                    var st = measured[i].style;
+                    mStart[k] = MarginTop(i);
+                    mEnd[k] = MarginBottom(i);
+                    mCrossStart[k] = MarginLeft(i);
+                    mCrossEnd[k] = MarginRight(i);
+                    baseMain[k] = st.FlexBasis.IsAuto
+                        ? measured[i].size.Height
+                        : (st.FlexBasis.Value!.Value.IsPercent ? st.FlexBasis.Value.Value.Resolve(mainContent) : st.FlexBasis.Value.Value.Pixels);
+                    minMain[k] = ResolveMin(st.MinHeight, mainContent);
+                    maxMain[k] = ResolveMax(st.MaxHeight, mainContent);
                 }
+
+                var arranged = DistributeMain(idxs, measured, baseMain, minMain, maxMain, mStart, mEnd, gapCount, baseGap, mainContent);
+
+                double itemsExtent = 0;
+                for (int k = 0; k < n; k++) itemsExtent += arranged[k] + mStart[k] + mEnd[k];
+                ComputeJustify(containerStyle.JustifyContent, mainContent, itemsExtent, gapCount, baseGap, n, out double startY, out double dynamicGap);
+
+                double columnWidth = lineSizes[li] + perLineExtraWidth[li];
+                double crossBase = lines.Count == 1 ? singleLineCrossBaseOffset : lineOffsetsX[li];
+
+                double y = startY;
+                for (int k = 0; k < n; k++)
+                {
+                    int i = idxs[k];
+                    var st = measured[i].style;
+                    double h = arranged[k];
+                    double w = measured[i].size.Width;
+                    double outerCross = mCrossStart[k] + w + mCrossEnd[k];
+                    var eff = EffectiveAlign(st.AlignSelf);
+                    double itemX;
+                    switch (eff)
+                    {
+                        case Andy.Tui.Style.AlignItems.Center:
+                            itemX = crossBase + (columnWidth - outerCross) / 2.0 + mCrossStart[k];
+                            break;
+                        case Andy.Tui.Style.AlignItems.FlexEnd:
+                            itemX = crossBase + (columnWidth - outerCross) + mCrossStart[k];
+                            break;
+                        case Andy.Tui.Style.AlignItems.Stretch:
+                            if (st.Width.IsAuto) w = Math.Max(w, columnWidth - mCrossStart[k] - mCrossEnd[k]);
+                            itemX = crossBase + mCrossStart[k];
+                            break;
+                        default:
+                            itemX = crossBase + mCrossStart[k];
+                            break;
+                    }
+                    w = ClampCross(w, st.MinWidth, st.MaxWidth, contentW);
+                    h = ClampCross(h, st.MinHeight, st.MaxHeight, contentH);
+                    itemX = Math.Max(0, itemX);
+
+                    double itemY = y + mStart[k];
+                    var rect = ClipIfNeeded(new Rect(itemX + originX, itemY + originY, w, h));
+                    measured[i].node.Arrange(rect);
+
+                    // Advance by the FINAL (constrained) main size plus margins so rects never overlap.
+                    y += mStart[k] + h + mEnd[k];
+                    if (k < n - 1) y += dynamicGap;
+                }
+            }
+        }
+    }
+
+    private static double ResolveMin(Andy.Tui.Style.LengthOrAuto v, double reference)
+        => v.IsAuto ? double.NegativeInfinity : (v.Value!.Value.IsPercent ? v.Value.Value.Resolve(reference) : v.Value.Value.Pixels);
+
+    private static double ResolveMax(Andy.Tui.Style.LengthOrAuto v, double reference)
+        => v.IsAuto ? double.PositiveInfinity : (v.Value!.Value.IsPercent ? v.Value.Value.Resolve(reference) : v.Value.Value.Pixels);
+
+    private static double ClampCross(double value, Andy.Tui.Style.LengthOrAuto min, Andy.Tui.Style.LengthOrAuto max, double reference)
+    {
+        if (!min.IsAuto)
+        {
+            var v = min.Value!.Value;
+            value = Math.Max(value, v.IsPercent ? v.Resolve(reference) : v.Pixels);
+        }
+        if (!max.IsAuto)
+        {
+            var v = max.Value!.Value;
+            value = Math.Min(value, v.IsPercent ? v.Resolve(reference) : v.Pixels);
+        }
+        return value;
+    }
+
+    /// <summary>
+    /// Distributes free (or negative) space along the main axis using grow/shrink factors,
+    /// freezing items that hit their min/max and re-distributing the remaining space.
+    /// </summary>
+    private static double[] DistributeMain(
+        IReadOnlyList<int> idxs,
+        (ILayoutNode node, ResolvedStyle style, Size size)[] measured,
+        double[] baseMain,
+        double[] minMain,
+        double[] maxMain,
+        double[] mStart,
+        double[] mEnd,
+        double gapCount,
+        double baseGap,
+        double mainContent)
+    {
+        int n = idxs.Count;
+        var arranged = new double[n];
+        for (int k = 0; k < n; k++) arranged[k] = baseMain[k];
+
+        double MarginsAndGaps()
+        {
+            double s = gapCount * baseGap;
+            for (int k = 0; k < n; k++) s += mStart[k] + mEnd[k];
+            return s;
+        }
+        double SumArranged()
+        {
+            double s = 0;
+            for (int k = 0; k < n; k++) s += arranged[k];
+            return s;
+        }
+
+        double marginsAndGaps = MarginsAndGaps();
+        double freeSpace = mainContent - (SumArranged() + marginsAndGaps);
+
+        if (freeSpace > Eps)
+        {
+            for (int iter = 0; iter < n; iter++)
+            {
+                double growSum = 0;
+                var canGrow = new bool[n];
+                for (int k = 0; k < n; k++)
+                {
+                    double g = measured[idxs[k]].style.FlexGrow;
+                    canGrow[k] = g > 0 && arranged[k] < maxMain[k] - Eps;
+                    if (canGrow[k]) growSum += g;
+                }
+                if (growSum <= 0) break;
+                for (int k = 0; k < n; k++)
+                {
+                    if (!canGrow[k]) continue;
+                    double g = measured[idxs[k]].style.FlexGrow;
+                    arranged[k] = Math.Min(maxMain[k], arranged[k] + freeSpace * (g / growSum));
+                }
+                double newFree = mainContent - (SumArranged() + marginsAndGaps);
+                if (Math.Abs(newFree - freeSpace) < Eps || newFree <= Eps) { break; }
+                freeSpace = newFree;
+            }
+        }
+        else if (freeSpace < -Eps)
+        {
+            for (int iter = 0; iter < n; iter++)
+            {
+                double weightSum = 0;
+                var canShrink = new bool[n];
+                for (int k = 0; k < n; k++)
+                {
+                    double w = measured[idxs[k]].style.FlexShrink * baseMain[k];
+                    canShrink[k] = w > 0 && arranged[k] > minMain[k] + Eps;
+                    if (canShrink[k]) weightSum += w;
+                }
+                if (weightSum <= 0) break;
+                double deficit = -freeSpace;
+                for (int k = 0; k < n; k++)
+                {
+                    if (!canShrink[k]) continue;
+                    double w = measured[idxs[k]].style.FlexShrink * baseMain[k];
+                    arranged[k] = Math.Max(minMain[k], arranged[k] - deficit * (w / weightSum));
+                }
+                double newFree = mainContent - (SumArranged() + marginsAndGaps);
+                if (Math.Abs(newFree - freeSpace) < Eps || newFree >= -Eps) { break; }
+                freeSpace = newFree;
+            }
+        }
+
+        return arranged;
+    }
+
+    private static void ComputeJustify(
+        Andy.Tui.Style.JustifyContent jc,
+        double mainContent,
+        double itemsExtent,
+        double gapCount,
+        double baseGap,
+        int n,
+        out double start,
+        out double dynamicGap)
+    {
+        double totalBase = itemsExtent + gapCount * baseGap;
+        switch (jc)
+        {
+            case Andy.Tui.Style.JustifyContent.Center:
+                start = Math.Max(0, (mainContent - totalBase) / 2.0);
+                dynamicGap = baseGap;
+                break;
+            case Andy.Tui.Style.JustifyContent.FlexEnd:
+                start = Math.Max(0, mainContent - totalBase);
+                dynamicGap = baseGap;
+                break;
+            case Andy.Tui.Style.JustifyContent.SpaceBetween:
+                dynamicGap = gapCount > 0 ? Math.Max(0, (mainContent - itemsExtent) / gapCount) : 0;
+                start = 0;
+                break;
+            case Andy.Tui.Style.JustifyContent.SpaceAround:
+                {
+                    double spacing = Math.Max(0, (mainContent - itemsExtent) / n);
+                    start = spacing / 2.0;
+                    dynamicGap = spacing;
+                    break;
+                }
+            case Andy.Tui.Style.JustifyContent.SpaceEvenly:
+                {
+                    double spacing = Math.Max(0, (mainContent - itemsExtent) / (n + 1));
+                    start = spacing;
+                    dynamicGap = spacing;
+                    break;
+                }
+            case Andy.Tui.Style.JustifyContent.FlexStart:
+            default:
+                start = 0;
+                dynamicGap = baseGap;
+                break;
+        }
+    }
+
+    private static void ComputeAlignContent(
+        ResolvedStyle containerStyle,
+        double containerCross,
+        double baseGap,
+        double[] lineSizes,
+        double[] lineOffsets,
+        double[] perLineExtra)
+    {
+        int count = lineSizes.Length;
+        double sumSizes = lineSizes.Sum();
+        double start = 0;
+        double betweenGap = baseGap;
+
+        if (count > 1)
+        {
+            double baseTotal = sumSizes + baseGap * (count - 1);
+            switch (containerStyle.AlignContent)
+            {
+                case Andy.Tui.Style.AlignContent.FlexStart:
+                    start = 0; betweenGap = baseGap; break;
+                case Andy.Tui.Style.AlignContent.Center:
+                    start = Math.Max(0, (containerCross - baseTotal) / 2.0); betweenGap = baseGap; break;
+                case Andy.Tui.Style.AlignContent.FlexEnd:
+                    start = Math.Max(0, containerCross - baseTotal); betweenGap = baseGap; break;
+                case Andy.Tui.Style.AlignContent.SpaceBetween:
+                    betweenGap = count > 1 ? Math.Max(0, (containerCross - sumSizes) / (count - 1)) : 0;
+                    start = 0; break;
+                case Andy.Tui.Style.AlignContent.SpaceAround:
+                    {
+                        double spacing = Math.Max(0, (containerCross - sumSizes) / count);
+                        start = spacing / 2.0; betweenGap = spacing; break;
+                    }
+                case Andy.Tui.Style.AlignContent.SpaceEvenly:
+                    {
+                        double spacing = Math.Max(0, (containerCross - sumSizes) / (count + 1));
+                        start = spacing; betweenGap = spacing; break;
+                    }
+                case Andy.Tui.Style.AlignContent.Stretch:
+                default:
+                    {
+                        double extra = Math.Max(0, containerCross - baseTotal);
+                        double add = count > 0 ? extra / count : 0;
+                        for (int li = 0; li < count; li++) perLineExtra[li] = add;
+                        start = 0; betweenGap = baseGap; break;
+                    }
+            }
+        }
+
+        if (containerStyle.FlexWrap == Andy.Tui.Style.FlexWrap.WrapReverse && count > 0)
+        {
+            double total = lineSizes.Sum() + perLineExtra.Sum() + betweenGap * Math.Max(0, count - 1);
+            double accum = Math.Max(0, containerCross - total + start);
+            for (int li = count - 1; li >= 0; li--)
+            {
+                lineOffsets[li] = accum;
+                accum += lineSizes[li] + perLineExtra[li];
+                if (li > 0) accum += betweenGap;
             }
         }
         else
         {
-            double baseColGap = containerStyle.ColumnGap.Pixels;
-            double sumWidths = lineSizes.Sum();
-            double xStart = 0;
-            double betweenGap = baseColGap;
-            if (lines.Count == 1)
+            double accum = start;
+            for (int li = 0; li < count; li++)
             {
-                xStart = 0;
-                betweenGap = baseColGap;
-            }
-            else
-            {
-                double baseTotal = sumWidths + baseColGap * (lines.Count - 1);
-                switch (containerStyle.AlignContent)
-                {
-                    case Andy.Tui.Style.AlignContent.FlexStart:
-                        xStart = 0;
-                        betweenGap = baseColGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.Center:
-                        xStart = Math.Max(0, (containerSize.Width - baseTotal) / 2.0);
-                        betweenGap = baseColGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.FlexEnd:
-                        xStart = Math.Max(0, containerSize.Width - baseTotal);
-                        betweenGap = baseColGap;
-                        break;
-                    case Andy.Tui.Style.AlignContent.SpaceBetween:
-                        if (lines.Count > 1)
-                        {
-                            betweenGap = Math.Max(0, (containerSize.Width - sumWidths) / (lines.Count - 1));
-                        }
-                        else
-                        {
-                            betweenGap = 0;
-                        }
-                        xStart = 0;
-                        break;
-                    case Andy.Tui.Style.AlignContent.SpaceAround:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Width - sumWidths) / (lines.Count));
-                            xStart = spacing / 2.0;
-                            betweenGap = spacing;
-                            break;
-                        }
-                    case Andy.Tui.Style.AlignContent.SpaceEvenly:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Width - sumWidths) / (lines.Count + 1));
-                            xStart = spacing;
-                            betweenGap = spacing;
-                            break;
-                        }
-                    case Andy.Tui.Style.AlignContent.Stretch:
-                    default:
-                        {
-                            double extra = Math.Max(0, containerSize.Width - baseTotal);
-                            double add = lines.Count > 0 ? extra / lines.Count : 0;
-                            for (int li = 0; li < lines.Count; li++) perLineExtraWidth[li] = add;
-                            xStart = 0;
-                            betweenGap = baseColGap;
-                            break;
-                        }
-                }
-            }
-
-            if (containerStyle.FlexWrap == Andy.Tui.Style.FlexWrap.WrapReverse && lines.Count > 0)
-            {
-                double total = lineSizes.Sum() + perLineExtraWidth.Sum() + betweenGap * Math.Max(0, lines.Count - 1);
-                double xAccum = Math.Max(0, containerSize.Width - total + xStart);
-                for (int li = lines.Count - 1; li >= 0; li--)
-                {
-                    lineOffsetsX[li] = xAccum;
-                    xAccum += lineSizes[li] + perLineExtraWidth[li];
-                    if (li > 0) xAccum += betweenGap;
-                }
-            }
-            else
-            {
-                double xAccum = xStart;
-                for (int li = 0; li < lines.Count; li++)
-                {
-                    lineOffsetsX[li] = xAccum;
-                    xAccum += lineSizes[li] + perLineExtraWidth[li];
-                    if (li < lines.Count - 1) xAccum += betweenGap;
-                }
-            }
-        }
-
-        for (int li = 0; li < lines.Count; li++)
-        {
-            var idxs = lines[li];
-            if (isRowDirection)
-            {
-                // Establish base widths using flex-basis when provided
-                var baseWidths = new double[idxs.Count];
-                for (int k = 0; k < idxs.Count; k++)
-                {
-                    int i = idxs[k];
-                    if (measured[i].style.FlexBasis.IsAuto)
-                    {
-                        baseWidths[k] = measured[i].size.Width;
-                    }
-                    else
-                    {
-                        var v = measured[i].style.FlexBasis.Value!.Value;
-                        baseWidths[k] = v.IsPercent ? v.Resolve(containerSize.Width) : v.Pixels;
-                    }
-                }
-                double lineItemsWidth = baseWidths.Sum();
-                double gapCount = Math.Max(0, idxs.Count - 1);
-                double baseGap = containerStyle.ColumnGap.Pixels;
-                double startX = 0;
-                double dynamicGap = baseGap;
-                double totalBaseWidth = lineItemsWidth + gapCount * baseGap;
-
-                switch (containerStyle.JustifyContent)
-                {
-                    case Andy.Tui.Style.JustifyContent.FlexStart:
-                        startX = 0;
-                        dynamicGap = baseGap;
-                        break;
-                    case Andy.Tui.Style.JustifyContent.Center:
-                        startX = Math.Max(0, (containerSize.Width - totalBaseWidth) / 2.0);
-                        dynamicGap = baseGap;
-                        break;
-                    case Andy.Tui.Style.JustifyContent.FlexEnd:
-                        startX = Math.Max(0, containerSize.Width - totalBaseWidth);
-                        dynamicGap = baseGap;
-                        break;
-                    case Andy.Tui.Style.JustifyContent.SpaceBetween:
-                        if (gapCount > 0)
-                            dynamicGap = Math.Max(0, (containerSize.Width - lineItemsWidth) / gapCount);
-                        else
-                            dynamicGap = 0;
-                        startX = 0;
-                        break;
-                    case Andy.Tui.Style.JustifyContent.SpaceAround:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Width - lineItemsWidth) / (idxs.Count));
-                            startX = spacing / 2.0;
-                            dynamicGap = spacing;
-                            break;
-                        }
-                    case Andy.Tui.Style.JustifyContent.SpaceEvenly:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Width - lineItemsWidth) / (idxs.Count + 1));
-                            startX = spacing;
-                            dynamicGap = spacing;
-                            break;
-                        }
-                    default:
-                        startX = 0;
-                        dynamicGap = baseGap;
-                        break;
-                }
-
-                // Flex grow/shrink distribution along main axis (row) with simple freeze/reflow on constraints
-                var arrangedWidths = new double[idxs.Count];
-                for (int k = 0; k < idxs.Count; k++) arrangedWidths[k] = baseWidths[k];
-                double freeSpace = containerSize.Width - totalBaseWidth;
-                double[] minW = new double[idxs.Count];
-                double[] maxW = new double[idxs.Count];
-                var containerWidthLocal = containerSize.Width;
-                for (int k = 0; k < idxs.Count; k++)
-                {
-                    var st = measured[idxs[k]].style;
-                    minW[k] = st.MinWidth.IsAuto ? double.NegativeInfinity : (st.MinWidth.Value!.Value.IsPercent ? st.MinWidth.Value.Value.Resolve(containerWidthLocal) : st.MinWidth.Value.Value.Pixels);
-                    maxW[k] = st.MaxWidth.IsAuto ? double.PositiveInfinity : (st.MaxWidth.Value!.Value.IsPercent ? st.MaxWidth.Value.Value.Resolve(containerWidthLocal) : st.MaxWidth.Value.Value.Pixels);
-                }
-                double SumArranged() { double s = 0; for (int k = 0; k < idxs.Count; k++) s += arrangedWidths[k]; return s; }
-                void DistributeGrow()
-                {
-                    for (int iter = 0; iter < idxs.Count; iter++)
-                    {
-                        double growSum = 0;
-                        var canGrow = new bool[idxs.Count];
-                        for (int k = 0; k < idxs.Count; k++)
-                        {
-                            double g = measured[idxs[k]].style.FlexGrow;
-                            canGrow[k] = g > 0 && arrangedWidths[k] < maxW[k] - 1e-6;
-                            if (canGrow[k]) growSum += g;
-                        }
-                        if (growSum <= 0) break;
-                        for (int k = 0; k < idxs.Count; k++)
-                        {
-                            if (!canGrow[k]) continue;
-                            double g = measured[idxs[k]].style.FlexGrow;
-                            double add = freeSpace * (g / growSum);
-                            arrangedWidths[k] = Math.Min(maxW[k], arrangedWidths[k] + add);
-                        }
-                        double used = SumArranged();
-                        double baseGaps = gapCount * baseGap; // gapCount/baseGap in scope from above
-                        double newFree = containerWidthLocal - (used + baseGaps);
-                        if (Math.Abs(newFree - freeSpace) < 1e-6 || newFree <= 1e-6) { freeSpace = Math.Max(0, newFree); break; }
-                        freeSpace = newFree;
-                    }
-                }
-                void DistributeShrink()
-                {
-                    for (int iter = 0; iter < idxs.Count; iter++)
-                    {
-                        double weightSum = 0;
-                        var canShrink = new bool[idxs.Count];
-                        for (int k = 0; k < idxs.Count; k++)
-                        {
-                            var st = measured[idxs[k]].style;
-                            double w = st.FlexShrink * baseWidths[k];
-                            canShrink[k] = w > 0 && arrangedWidths[k] > minW[k] + 1e-6;
-                            if (canShrink[k]) weightSum += w;
-                        }
-                        if (weightSum <= 0) break;
-                        double deficit = -freeSpace;
-                        for (int k = 0; k < idxs.Count; k++)
-                        {
-                            if (!canShrink[k]) continue;
-                            var st = measured[idxs[k]].style;
-                            double w = st.FlexShrink * baseWidths[k];
-                            double reduce = deficit * (w / weightSum);
-                            arrangedWidths[k] = Math.Max(minW[k], arrangedWidths[k] - reduce);
-                        }
-                        double used = SumArranged();
-                        double baseGaps = gapCount * baseGap;
-                        double newFree = containerWidthLocal - (used + baseGaps);
-                        if (Math.Abs(newFree - freeSpace) < 1e-6 || newFree >= -1e-6) { freeSpace = Math.Min(0, newFree); break; }
-                        freeSpace = newFree;
-                    }
-                }
-                if (freeSpace > 1e-6)
-                {
-                    DistributeGrow();
-                }
-                else if (freeSpace < -1e-6)
-                {
-                    DistributeShrink();
-                }
-
-                double x = startX;
-                double lineHeight = lineSizes[li] + perLineExtraHeight[li];
-                // Compute line baseline: max baseline among items in this line
-                double ComputeBaselineForIndex(int idx)
-                {
-                    var (node, _, size) = measured[idx];
-                    if (node is IBaselineProvider bp)
-                    {
-                        return bp.GetFirstBaseline(in size);
-                    }
-                    // Fallback: use bottom (textless block) as baseline
-                    return size.Height;
-                }
-                double[] baselines = new double[idxs.Count];
-                double lineBaseline = 0;
-                for (int k = 0; k < idxs.Count; k++)
-                {
-                    baselines[k] = ComputeBaselineForIndex(idxs[k]);
-                    if (baselines[k] > lineBaseline) lineBaseline = baselines[k];
-                }
-                for (int k = 0; k < idxs.Count; k++)
-                {
-                    int i = idxs[k];
-                    var sz = measured[i].size;
-                    // Align-self overrides align-items when not Auto
-                    var self = measured[i].style.AlignSelf;
-                    double baseLineTop = (lines.Count == 1 ? singleLineCrossBaseOffset : lineOffsetsY[li]);
-                    double itemY = baseLineTop;
-                    if (self != Andy.Tui.Style.AlignSelf.Auto)
-                    {
-                        switch (self)
-                        {
-                            case Andy.Tui.Style.AlignSelf.Center:
-                                itemY = Math.Max(0, baseLineTop + (lineHeight - sz.Height) / 2.0);
-                                break;
-                            case Andy.Tui.Style.AlignSelf.FlexEnd:
-                                itemY = Math.Max(0, baseLineTop + (lineHeight - sz.Height));
-                                break;
-                            case Andy.Tui.Style.AlignSelf.Baseline:
-                                // Align typographic baselines when available
-                                double selfBaseline = baselines[k];
-                                itemY = Math.Max(0, baseLineTop + (lineBaseline - selfBaseline));
-                                break;
-                            case Andy.Tui.Style.AlignSelf.Stretch:
-                                itemY = baseLineTop;
-                                break;
-                            case Andy.Tui.Style.AlignSelf.FlexStart:
-                            default:
-                                itemY = baseLineTop;
-                                break;
-                        }
-                    }
-                    double itemH = sz.Height;
-
-                    if ((self == Andy.Tui.Style.AlignSelf.Stretch && isRowDirection) || (self == Andy.Tui.Style.AlignSelf.Auto && containerStyle.AlignItems == Andy.Tui.Style.AlignItems.Stretch))
-                    {
-                        itemH = Math.Max(itemH, lineHeight);
-                    }
-
-                    // If align-items is Baseline and self is Auto, align baselines
-                    if (self == Andy.Tui.Style.AlignSelf.Auto && containerStyle.AlignItems == Andy.Tui.Style.AlignItems.Baseline)
-                    {
-                        double selfBaseline = baselines[k];
-                        itemY = Math.Max(0, baseLineTop + (lineBaseline - selfBaseline));
-                    }
-
-                    // Final width from arranged (already clamped/grown)
-                    double usedWidth = arrangedWidths[k];
-                    var stItem = measured[i].style;
-                    // heights clamping below
-                    if (!stItem.MinHeight.IsAuto)
-                    {
-                        var v = stItem.MinHeight.Value!.Value;
-                        var minH = v.IsPercent ? v.Resolve(containerSize.Height) : v.Pixels;
-                        itemH = Math.Max(itemH, minH);
-                    }
-                    if (!stItem.MaxHeight.IsAuto)
-                    {
-                        var v = stItem.MaxHeight.Value!.Value;
-                        var maxH = v.IsPercent ? v.Resolve(containerSize.Height) : v.Pixels;
-                        itemH = Math.Min(itemH, maxH);
-                    }
-
-                    var rect = new Rect(x, itemY, usedWidth, itemH);
-                    rect = ClipIfNeeded(rect);
-                    measured[i].node.Arrange(rect);
-                    x += usedWidth;
-                    if (k < idxs.Count - 1) x += dynamicGap;
-                }
-            }
-            else
-            {
-                // Column direction: multiple columns possible
-                double columnWidth = lineSizes[li] + perLineExtraWidth[li];
-                double x = (lines.Count == 1 ? singleLineCrossBaseOffset : lineOffsetsX[li]);
-
-                // Vertical main axis distribution via justify-content using RowGap
-                double itemsHeight = idxs.Sum(i => measured[i].size.Height);
-                double gapCount = Math.Max(0, idxs.Count - 1);
-                double baseGap = containerStyle.RowGap.Pixels;
-                double startY = 0;
-                double dynamicGap = baseGap;
-                double totalBaseHeight = itemsHeight + gapCount * baseGap;
-                switch (containerStyle.JustifyContent)
-                {
-                    case Andy.Tui.Style.JustifyContent.FlexStart:
-                        startY = 0; dynamicGap = baseGap; break;
-                    case Andy.Tui.Style.JustifyContent.Center:
-                        startY = Math.Max(0, (containerSize.Height - totalBaseHeight) / 2.0); dynamicGap = baseGap; break;
-                    case Andy.Tui.Style.JustifyContent.FlexEnd:
-                        startY = Math.Max(0, containerSize.Height - totalBaseHeight); dynamicGap = baseGap; break;
-                    case Andy.Tui.Style.JustifyContent.SpaceBetween:
-                        dynamicGap = gapCount > 0 ? Math.Max(0, (containerSize.Height - itemsHeight) / gapCount) : 0; startY = 0; break;
-                    case Andy.Tui.Style.JustifyContent.SpaceAround:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Height - itemsHeight) / (idxs.Count));
-                            startY = spacing / 2.0; dynamicGap = spacing; break;
-                        }
-                    case Andy.Tui.Style.JustifyContent.SpaceEvenly:
-                        {
-                            double spacing = Math.Max(0, (containerSize.Height - itemsHeight) / (idxs.Count + 1));
-                            startY = spacing; dynamicGap = spacing; break;
-                        }
-                    default:
-                        startY = 0; dynamicGap = baseGap; break;
-                }
-
-                double y = startY;
-                // Align-items horizontally within this column
-                for (int k = 0; k < idxs.Count; k++)
-                {
-                    int i = idxs[k];
-                    var sz = measured[i].size;
-                    var self = measured[i].style.AlignSelf;
-                    double baseLineLeft = singleLineCrossBaseOffset;
-                    double itemX = x; // default flex-start within column bounds
-                    if (self != Andy.Tui.Style.AlignSelf.Auto)
-                    {
-                        switch (self)
-                        {
-                            case Andy.Tui.Style.AlignSelf.Center:
-                                itemX = Math.Max(0, x + (columnWidth - sz.Width) / 2.0);
-                                break;
-                            case Andy.Tui.Style.AlignSelf.FlexEnd:
-                                itemX = Math.Max(0, x + (columnWidth - sz.Width));
-                                break;
-                            case Andy.Tui.Style.AlignSelf.Stretch:
-                                itemX = x;
-                                break;
-                            case Andy.Tui.Style.AlignSelf.FlexStart:
-                            case Andy.Tui.Style.AlignSelf.Baseline:
-                            default:
-                                itemX = x;
-                                break;
-                        }
-                    }
-                    double itemW = sz.Width;
-                    if ((self == Andy.Tui.Style.AlignSelf.Stretch && !isRowDirection) || (self == Andy.Tui.Style.AlignSelf.Auto && containerStyle.AlignItems == Andy.Tui.Style.AlignItems.Stretch))
-                    {
-                        itemW = Math.Max(itemW, columnWidth);
-                    }
-
-                    // Clamp with min/max
-                    var stItem = measured[i].style;
-                    if (!stItem.MinWidth.IsAuto)
-                    {
-                        var v = stItem.MinWidth.Value!.Value;
-                        var minW = v.IsPercent ? v.Resolve(containerSize.Width) : v.Pixels;
-                        itemW = Math.Max(itemW, minW);
-                    }
-                    if (!stItem.MaxWidth.IsAuto)
-                    {
-                        var v = stItem.MaxWidth.Value!.Value;
-                        var maxW = v.IsPercent ? v.Resolve(containerSize.Width) : v.Pixels;
-                        itemW = Math.Min(itemW, maxW);
-                    }
-                    double itemH = sz.Height;
-                    if (!stItem.MinHeight.IsAuto)
-                    {
-                        var vH = stItem.MinHeight.Value!.Value;
-                        var minH = vH.IsPercent ? vH.Resolve(containerSize.Height) : vH.Pixels;
-                        itemH = Math.Max(itemH, minH);
-                    }
-                    if (!stItem.MaxHeight.IsAuto)
-                    {
-                        var vH = stItem.MaxHeight.Value!.Value;
-                        var maxH = vH.IsPercent ? vH.Resolve(containerSize.Height) : vH.Pixels;
-                        itemH = Math.Min(itemH, maxH);
-                    }
-
-                    var rect = new Rect(itemX, y, itemW, itemH);
-                    rect = ClipIfNeeded(rect);
-                    measured[i].node.Arrange(rect);
-                    y += sz.Height;
-                    if (k < idxs.Count - 1) y += dynamicGap;
-                }
+                lineOffsets[li] = accum;
+                accum += lineSizes[li] + perLineExtra[li];
+                if (li < count - 1) accum += betweenGap;
             }
         }
     }
