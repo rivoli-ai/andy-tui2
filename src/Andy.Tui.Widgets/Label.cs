@@ -3,7 +3,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Label
+public sealed class Label : WidgetBase
 {
     public string Text { get; private set; }
     public DL.Rgb24 Fg { get; private set; }
@@ -18,18 +18,20 @@ public sealed class Label
         Attrs = DL.CellAttrFlags.None;
     }
 
-    public void SetText(string text) => Text = text;
-    public void SetForeground(DL.Rgb24 fg) => Fg = fg;
-    public void SetBackground(DL.Rgb24? bg) => Bg = bg;
-    public void SetAttrs(DL.CellAttrFlags attrs) => Attrs = attrs;
+    public void SetText(string text) { Text = text; Invalidate(); }
+    public void SetForeground(DL.Rgb24 fg) { Fg = fg; Invalidate(); }
+    public void SetBackground(DL.Rgb24? bg) { Bg = bg; Invalidate(); }
+    public void SetAttrs(DL.CellAttrFlags attrs) { Attrs = attrs; Invalidate(); }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override L.Size MeasureCore(L.Size available) => new(Text?.Length ?? 0, 1);
+
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         var x = (int)rect.X;
         var y = (int)rect.Y;
         var width = (int)rect.Width;
         builder.PushClip(new DL.ClipPush(x, y, width, (int)rect.Height));
-        builder.DrawText(new DL.TextRun(x, y, Text, Fg, Bg, Attrs));
+        builder.DrawText(new DL.TextRun(x, y, Text, ResolveForeground(Fg), Style?.Background ?? Bg, Attrs));
         builder.Pop();
     }
 }

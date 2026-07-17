@@ -162,35 +162,68 @@ submitButton.Clicked += () =>
 };
 ```
 
-## Widget Properties
+## Widget Runtime Contract
 
-Most widgets share common properties:
+All built-in widgets implement the single composable contract `IWidget`
+(`src/Andy.Tui.Widgets/IWidget.cs`), which extends the minimal `IRenderable`
+render contract (`src/Andy.Tui.Widgets/IRenderable.cs`). Because they share this
+contract, widgets nest directly inside the stack and container widgets
+(`VStack`, `HStack` in `src/Andy.Tui.Widgets/Layout/StackPanel.cs`) without an
+adapter.
 
-- **Style** - CSS-like styling
-- **Visible** - Show/hide widget
-- **Enabled** - Enable/disable interaction
-- **Width/Height** - Size constraints
-- **Margin/Padding** - Spacing
-- **Id** - Unique identifier
-- **Class** - CSS class names
+The contract unifies:
+
+- **Measurement** - `Size Measure(Size available)`
+- **Rendering** - `void Render(in Rect rect, DisplayList baseDl, DisplayListBuilder builder)`
+- **Identity** - `string? Key` (assign with `WithKey(...)`)
+- **Focusability** - `bool Focusable`, `bool IsFocused`, `SetFocused(bool)`
+- **Input handling** - `bool HandleInput(IInputEvent ev)`
+- **Disabled state** - `bool IsEnabled`, `SetEnabled(bool)`
+- **Visible state** - `bool IsVisible`, `SetVisible(bool)` (hidden widgets emit nothing and are skipped by stacks)
+- **Style hooks** - `WidgetStyle? Style`, `SetStyle(WidgetStyle?)` to override theme colours per widget
+- **Invalidation** - `event Action Invalidated`, `Invalidate()`
 
 ## Custom Widgets
 
-Create custom widgets by inheriting from `Widget`:
+Create custom widgets by inheriting from `WidgetBase`
+(`src/Andy.Tui.Widgets/WidgetBase.cs`), which supplies the shared runtime
+behaviour. Implement `RenderCore` and, when the intrinsic size matters,
+`MeasureCore`:
 
 ```csharp
-public class CustomWidget : Widget
+using Andy.Tui.Widgets;
+using DL = Andy.Tui.DisplayList;
+using L = Andy.Tui.Layout;
+
+public sealed class CustomWidget : WidgetBase
 {
-    protected override void OnRender(IRenderContext context)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
-        // Custom rendering logic
-        context.DrawText(0, 0, "Custom Widget");
+        // Called only when visible with a positive-area rectangle.
+        builder.DrawText(new DL.TextRun(
+            (int)rect.X, (int)rect.Y, "Custom Widget",
+            ResolveForeground(new DL.Rgb24(200, 200, 200)), null, DL.CellAttrFlags.None));
     }
-    
-    protected override Size OnMeasure(Size available)
-    {
-        // Return desired size
-        return new Size(20, 1);
-    }
+
+    protected override L.Size MeasureCore(L.Size available) => new(13, 1);
+
+    // Optionally override Focusable and HandleInputCore for interactive widgets.
+    public override bool Focusable => true;
 }
+```
+
+The base class already implements visibility, enabled/focus state, style
+resolution (`ResolveForeground` / `ResolveBackground`), and invalidation, so a
+custom widget only describes how it paints and measures.
+
+### Adapting external rendering
+
+For rendering owned outside the widget runtime, wrap it with `WidgetAdapter`
+(`src/Andy.Tui.Widgets/WidgetAdapter.cs`) so it can still be nested in stacks:
+
+```csharp
+IWidget widget = WidgetAdapter.FromRender(
+    (in L.Rect r, DL.DisplayList _, DL.DisplayListBuilder b) =>
+        b.DrawText(new DL.TextRun((int)r.X, (int)r.Y, "external", fg, null, DL.CellAttrFlags.None)),
+    desired: new L.Size(8, 1));
 ```

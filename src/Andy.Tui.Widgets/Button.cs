@@ -4,13 +4,16 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Button
+public sealed class Button : WidgetBase
 {
     public string Text { get; private set; }
-    public bool Enabled { get; private set; } = true;
+
+    /// <summary>Alias of <see cref="WidgetBase.IsEnabled"/> kept for backward compatibility.</summary>
+    public bool Enabled => IsEnabled;
     public bool IsHovered { get; private set; }
     public bool IsActive { get; private set; }
-    public bool IsFocused { get; private set; }
+
+    public override bool Focusable => true;
 
     // Style palette, seeded from the ambient theme (ThemeContext.Current) at construction.
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
@@ -22,19 +25,20 @@ public sealed class Button
 
     public Button(string text) => Text = text;
 
-    public void SetText(string text) => Text = text;
-    public void SetEnabled(bool enabled) => Enabled = enabled;
-    public void SetHovered(bool hovered) => IsHovered = hovered;
-    public void SetActive(bool active) => IsActive = active;
-    public void SetFocused(bool focused) => IsFocused = focused;
+    public void SetText(string text) { Text = text; Invalidate(); }
+    public void SetHovered(bool hovered) { IsHovered = hovered; Invalidate(); }
+    public void SetActive(bool active) { IsActive = active; Invalidate(); }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override L.Size MeasureCore(L.Size available) => new((Text?.Length ?? 0) + 4, 1);
+
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;
         int w = (int)rect.Width;
         int h = (int)rect.Height;
-        var bg = Enabled ? (IsActive ? BgActive : (IsHovered ? BgHover : Bg)) : BgDisabled;
+        var baseBg = ResolveBackground(Bg);
+        var bg = IsEnabled ? (IsActive ? BgActive : (IsHovered ? BgHover : baseBg)) : BgDisabled;
 
         builder.PushClip(new DL.ClipPush(x, y, w, h));
         builder.DrawRect(new DL.Rect(x, y, w, h, bg));
@@ -42,8 +46,8 @@ public sealed class Button
         // naive text placement with small padding
         int tx = x + 2;
         int ty = y; // single-line button; top aligned
-        var attrs = Enabled ? (IsFocused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None) : DL.CellAttrFlags.Dim;
-        builder.DrawText(new DL.TextRun(tx, ty, Text, Fg, bg, attrs));
+        var attrs = IsEnabled ? (IsFocused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None) : DL.CellAttrFlags.Dim;
+        builder.DrawText(new DL.TextRun(tx, ty, Text, ResolveForeground(Fg), bg, attrs));
         builder.Pop();
     }
 }
