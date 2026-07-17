@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
   </ItemGroup>
 
 </Project>

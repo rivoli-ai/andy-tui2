@@ -30,16 +30,20 @@ public sealed class TextWrapper
         var lines = new List<string>();
         var sb = new StringBuilder();
         int current = 0;
-        foreach (var g in new GraphemeEnumerator(text))
+        foreach (var g in TerminalText.EnumerateGraphemes(text))
         {
-            if (current + 1 > maxWidth)
+            // Wrap on terminal-cell width, not grapheme count, so wide (CJK,
+            // emoji, flag) clusters correctly consume two columns and never
+            // overflow the line. A whole grapheme cluster is always kept intact.
+            int w = TerminalText.GraphemeCellWidth(g);
+            if (current > 0 && current + w > maxWidth)
             {
                 lines.Add(sb.ToString());
                 sb.Clear();
                 current = 0;
             }
             sb.Append(g);
-            current++;
+            current += w;
         }
         lines.Add(sb.ToString());
         return lines;
