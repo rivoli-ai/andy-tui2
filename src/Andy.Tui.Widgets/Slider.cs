@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Slider : IThemeable, IStyleable
+public sealed class Slider : WidgetBase, IThemeable, IStyleable
 {
     private double _value; // 0..1
     public double Value { get => _value; set => _value = Math.Clamp(value, 0.0, 1.0); }
@@ -29,7 +29,7 @@ public sealed class Slider : IThemeable, IStyleable
         if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

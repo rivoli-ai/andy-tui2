@@ -6,7 +6,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Select : IThemeable, IStyleable
+public sealed class Select : WidgetBase, IThemeable, IStyleable
 {
     private string[] _items = Array.Empty<string>();
     private int _selectedIndex;
@@ -88,7 +88,7 @@ public sealed class Select : IThemeable, IStyleable
         return Math.Max(6, textW + 4);
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

@@ -8,7 +8,7 @@ using L = Andy.Tui.Layout;
 namespace Andy.Tui.Widgets
 {
     public enum FileDialogMode { Open, Save }
-    public sealed class FileDialog
+    public sealed class FileDialog : WidgetBase
     {
         private string _directory = Environment.CurrentDirectory;
         private FileDialogMode _mode = FileDialogMode.Open;
@@ -50,7 +50,7 @@ namespace Andy.Tui.Widgets
             }
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height; if (w<=0||h<=0) return;
             b.PushClip(new DL.ClipPush(x,y,w,h));

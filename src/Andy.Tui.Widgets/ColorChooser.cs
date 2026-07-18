@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class ColorChooser
+    public sealed class ColorChooser : WidgetBase
     {
         private int _hueSteps = 12;
         private int _sel = 0;
@@ -12,7 +12,7 @@ namespace Andy.Tui.Widgets
         public int GetSelectedIndex() => _sel;
         public void Move(int delta) { _sel = (_sel + delta + _hueSteps) % _hueSteps; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height; if (w<=0||h<=0) return;
             b.PushClip(new DL.ClipPush(x,y,w,h));
