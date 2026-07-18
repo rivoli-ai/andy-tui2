@@ -6,7 +6,7 @@ namespace Andy.Tui.Widgets
 {
     public enum ModalResult { None, Confirm, Cancel }
 
-    public sealed class ModalDialog
+    public sealed class ModalDialog : WidgetBase
     {
         private string _title = string.Empty;
         private string _message = string.Empty;
@@ -31,7 +31,9 @@ namespace Andy.Tui.Widgets
         }
 
         public void Hide() => _visible = false;
-        public bool IsVisible() => _visible;
+        /// <summary>Whether the dialog is currently shown. Distinct from the base widget
+        /// visibility flag; the dialog manages its own open/closed state.</summary>
+        public new bool IsVisible() => _visible;
         public string GetInputText() => _inputText;
         public ModalResult GetResult() => _result;
 
@@ -84,7 +86,13 @@ namespace Andy.Tui.Widgets
             return (boxW, boxH);
         }
 
-        public void Render(in L.Rect viewport, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
+        {
+            var (w, h) = Measure((int)available.Width, (int)available.Height);
+            return new L.Size(w, h);
+        }
+
+        protected override void RenderCore(in L.Rect viewport, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             if (!_visible) return;
             int vw = (int)viewport.Width; int vh = (int)viewport.Height;

@@ -5,7 +5,7 @@ namespace Andy.Tui.Widgets;
 
 public readonly record struct ChatMessage(string Author, string Text, bool IsUser);
 
-public sealed class ChatView
+public sealed class ChatView : WidgetBase
 {
     private readonly List<ChatMessage> _messages = new();
     public int ScrollY { get; private set; }
@@ -30,7 +30,7 @@ public sealed class ChatView
         ScrollY = Math.Max(0, _messages.Count - 1);
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
         builder.PushClip(new DL.ClipPush(x, y, w, h));

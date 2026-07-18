@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class EditorView
+public sealed class EditorView : WidgetBase
 {
     private string[] _lines = Array.Empty<string>();
     private int _cursorRow;
@@ -40,7 +40,7 @@ public sealed class EditorView
         if (_scrollRow < 0) _scrollRow = 0;
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;
