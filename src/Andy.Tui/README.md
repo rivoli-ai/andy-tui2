@@ -5,18 +5,17 @@
 A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with declarative component composition and reactive state management.
 
 > ⚠️ **ALPHA RELEASE WARNING** ⚠️
-> 
-> This software is in ALPHA stage. **NO GUARANTEES** are made about its functionality, stability, or safety.
-> 
-> **CRITICAL WARNINGS:**
-> - This library performs **DESTRUCTIVE OPERATIONS** on files and directories
-> - Permission management is **NOT FULLY TESTED** and may have security vulnerabilities
-> - **DO NOT USE** in production environments
-> - **DO NOT USE** on systems with critical or irreplaceable data
-> - **DO NOT USE** on systems without complete, verified backups
-> - The authors assume **NO RESPONSIBILITY** for data loss, system damage, or security breaches
-> 
-> **USE AT YOUR OWN RISK**
+>
+> This software is in ALPHA stage. Public APIs are unstable and may change
+> without notice. Do not depend on it in production.
+>
+> **Terminal-safety notes:** this library renders to the terminal and does
+> **not** delete, move, or overwrite files. It writes ANSI/VT escape sequences to
+> stdout and may switch the terminal into raw mode and the alternate screen
+> buffer, so an app that exits abnormally can leave the terminal modified
+> (no echo, hidden cursor, alternate screen). Pair terminal setup with cleanup,
+> restore the terminal with `reset` or `stty sane` if needed, and sanitize
+> untrusted text before displaying it.
 
 ## Features
 
@@ -24,9 +23,9 @@ A modern, reactive TUI (Terminal User Interface) framework for .NET 8+ with decl
 - **Component System**: Declarative component composition with modifiers
 - **CSS Styling**: Subset of CSS with cascade, specificity, variables, and pseudo-classes
 - **Flex Layout**: Modern flexbox-based layout engine
-- **Rich Widgets**: 80+ pre-built widgets including tables, charts, forms, and more
-- **High Performance**: Optimized rendering pipeline with virtualization support
-- **Cross-Platform**: Works on Windows, macOS, and Linux terminals
+- **Rich Widgets**: 70+ rendering widgets including tables, charts, dialogs, and editors (see the [Widget Catalog](https://github.com/rivoli-ai/andy-tui2/blob/main/docs/WIDGETS.md))
+- **Virtualization**: List and grid virtualization that renders only the visible window, independent of total item count
+- **Cross-Platform**: Targets .NET 8 on Windows, macOS, and Linux terminals with ANSI/VT support (primary development and CI on macOS/Linux)
 
 ## Quick Start
 

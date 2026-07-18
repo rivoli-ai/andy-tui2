@@ -124,7 +124,10 @@ scheduler.RequestFrame();
 Only redraws changed regions of the screen, minimizing terminal output.
 
 ### Virtualization
-Large lists and tables only render visible items, supporting millions of rows.
+Large lists and tables render only the items in the visible window
+(`Andy.Tui.Virtualization`). Work per frame is proportional to the number of
+visible rows/columns rather than the total collection size, so a small viewport
+stays cheap regardless of how many items the backing collection reports.
 
 ### Command Batching
 Groups terminal commands to reduce syscall overhead.

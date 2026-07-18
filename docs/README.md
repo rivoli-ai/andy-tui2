@@ -4,7 +4,7 @@
 
 - 📖 [Getting Started](GETTING_STARTED.md) - Installation and basic usage
 - 🏗️ [Architecture](ARCHITECTURE.md) - System design and components
-- 🎨 [Widget Catalog](WIDGETS.md) - Complete list of UI components
+- 🎨 [Widget Catalog](WIDGETS.md) - Implemented widgets, mapped to their source files
 
 ## Overview
 
@@ -13,11 +13,11 @@ Andy.Tui is a modern terminal UI framework for .NET 8+ that brings reactive prog
 ## Key Features
 
 - **Reactive State Management** - Signal-based reactivity system
-- **Rich Widget Library** - 80+ pre-built components
-- **CSS Styling** - Familiar styling with CSS subset
+- **Rich Widget Library** - 70+ rendering widgets ([catalog](WIDGETS.md))
+- **CSS Styling** - Familiar styling with a CSS subset
 - **Flexbox Layout** - Modern layout system
-- **Unicode Support** - Full Unicode text rendering
-- **Cross-Platform** - Windows, macOS, Linux support
+- **Unicode Support** - Grapheme-aware text rendering
+- **Cross-Platform** - Targets .NET 8 on Windows, macOS, and Linux terminals
 
 ## Documentation Structure
 
@@ -32,15 +32,16 @@ Browse [Widget Catalog](WIDGETS.md) for the complete list of available UI compon
 
 ## Project Status
 
-✅ **Completed Phases:**
+🟢 **Implemented (covered by the test suite):**
 - Phase 0: Foundations
-- Phase 1: Visual Core  
+- Phase 1: Visual Core
 - Phase 2: Rendering Core
 - Phase 3: Interactivity & Animations
 - Phase 4: Virtualization & Widgets
 
-🚧 **In Progress:**
-- Phase 5: Additional Backends (Web, Native)
+🚧 **In progress / planned:**
+- Phase 5: Additional Backends (only the terminal backend ships today)
+- Documentation, test-quality, and API-accuracy hardening — epic [#18](https://github.com/rivoli-ai/andy-tui2/issues/18)
 
 ## Example
 

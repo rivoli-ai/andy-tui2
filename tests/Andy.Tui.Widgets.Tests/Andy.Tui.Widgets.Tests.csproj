@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.CliWidgets\Andy.Tui.CliWidgets.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,166 +1,31 @@
 # Widget Catalog
 
-## Basic Widgets
+This catalog lists the widgets that are actually implemented and public in the
+source tree. Every entry below corresponds to a public type in
+`src/Andy.Tui.Widgets/` (namespace `Andy.Tui.Widgets`) or
+`src/Andy.Tui.CliWidgets/` (namespace `Andy.Tui.CliWidgets`).
 
-### Display
-- **Label** - Static text display
-- **Text** - Styled text with formatting
-- **Heading** - H1-H6 heading levels
-- **Paragraph** - Multi-line text block
-- **Code** - Monospace code display
-- **Icon** - Unicode/emoji icons
+> **Status:** ALPHA. Widget APIs are not stable and may change between
+> releases. Types that were named in older drafts of this document but do not
+> exist in source are listed under [Planned / not implemented](#planned--not-implemented).
 
-### Input
-- **Button** - Clickable button with label
-- **TextField** - Single-line text input
-- **TextArea** - Multi-line text input
-- **Checkbox** - Boolean toggle
-- **RadioButton** - Single selection from group
-- **Slider** - Numeric value selector
-- **Switch** - On/off toggle
+## How widgets work
 
-### Containers
-- **Container** - Basic layout container
-- **ScrollView** - Scrollable viewport
-- **Panel** - Bordered content area
-- **Card** - Styled content card
-- **Accordion** - Collapsible sections
-- **TabView** - Tabbed interface
-
-## Data Display
-
-### Lists & Tables
-- **List** - Vertical item list
-- **Table** - Data grid with columns
-- **TreeView** - Hierarchical tree display
-- **DataGrid** - Advanced table with sorting/filtering
-- **ListView** - Virtualized list for large datasets
-
-### Visualization
-- **ProgressBar** - Progress indicator
-- **Gauge** - Circular progress
-- **BarChart** - Vertical/horizontal bars
-- **LineChart** - Line graph
-- **SparkLine** - Inline mini-chart
-- **HeatMap** - Density visualization
-
-## Layout Widgets
-
-### Spacing
-- **Spacer** - Flexible space
-- **Divider** - Horizontal/vertical separator
-- **Gap** - Fixed space
-
-### Arrangement
-- **Stack** - Vertical/horizontal stacking
-- **Grid** - Grid-based layout
-- **FlexBox** - Flexible box layout
-- **Dock** - Docking panel layout
-
-## Forms
-
-### Controls
-- **Form** - Form container with validation
-- **FormField** - Labeled form input
-- **Select** - Dropdown selection
-- **DatePicker** - Date selection
-- **TimePicker** - Time selection
-- **ColorPicker** - Color selection
-- **FilePicker** - File path selection
-
-### Validation
-- **Validator** - Input validation rules
-- **ErrorMessage** - Validation error display
-
-## Feedback
-
-### Notifications
-- **Alert** - Alert message box
-- **Toast** - Temporary notification
-- **Badge** - Status indicator
-- **Spinner** - Loading indicator
-- **Skeleton** - Loading placeholder
-
-### Dialogs
-- **Dialog** - Modal dialog
-- **ConfirmDialog** - Confirmation prompt
-- **MessageBox** - Message display
-
-## Navigation
-
-- **Menu** - Dropdown/context menu
-- **MenuBar** - Application menu bar
-- **Breadcrumb** - Navigation trail
-- **Pagination** - Page navigation
-- **Stepper** - Step-by-step wizard
-
-## Advanced
-
-### Debugging
-- **HUD** - Performance overlay
-- **Console** - Debug console
-- **Inspector** - Widget inspector
-
-### Specialized
-- **Terminal** - Embedded terminal
-- **Editor** - Text editor with syntax highlighting
-- **Calendar** - Calendar view
-- **Kanban** - Kanban board
-- **Gantt** - Gantt chart
-- **Markdown** - Markdown renderer
-- **JsonViewer** - JSON tree viewer
-
-## Status Indicators
-
-- **StatusBar** - Application status bar
-- **ToolBar** - Tool button bar
-- **ActivityIndicator** - Activity status
-- **NetworkIndicator** - Network status
-- **BatteryIndicator** - Battery level
-
-## Media
-
-- **Image** - Image display (ASCII/Unicode art)
-- **Avatar** - User avatar
-- **QRCode** - QR code generator
-
-## Usage Example
+Widgets in `Andy.Tui.Widgets` are plain classes. They do **not** inherit from a
+common `Widget` base class and there is no `IRenderContext`. Instead, a widget
+exposes a `Render` method with the signature declared by
+[`IRenderable`](../src/Andy.Tui.Widgets/IRenderable.cs):
 
 ```csharp
-// Create a simple form
-var form = new Form();
-
-var nameField = new FormField
-{
-    Label = "Name:",
-    Input = new TextField { Placeholder = "Enter name" }
-};
-
-var emailField = new FormField  
-{
-    Label = "Email:",
-    Input = new TextField { Placeholder = "user@example.com" }
-};
-
-var submitButton = new Button { Label = "Submit" };
-
-form.AddChild(nameField);
-form.AddChild(emailField);
-form.AddChild(submitButton);
-
-// Add validation
-nameField.Validator = new RequiredValidator();
-emailField.Validator = new EmailValidator();
-
-// Handle submission
-submitButton.Clicked += () =>
-{
-    if (form.Validate())
-    {
-        // Process form data
-    }
-};
+void Render(in Andy.Tui.Layout.Rect rect,
+            Andy.Tui.DisplayList.DisplayList baseDl,
+            Andy.Tui.DisplayList.DisplayListBuilder builder);
 ```
+
+The widget appends draw operations for its `rect` to the supplied
+`DisplayListBuilder`; the compositor and terminal backend turn the resulting
+display list into terminal output. Widget state is set through constructors and
+explicit `Set*` methods rather than public property setters.
 
 ## Widget Runtime Contract
 
@@ -182,6 +47,145 @@ The contract unifies:
 - **Visible state** - `bool IsVisible`, `SetVisible(bool)` (hidden widgets emit nothing and are skipped by stacks)
 - **Style hooks** - `WidgetStyle? Style`, `SetStyle(WidgetStyle?)` to override theme colours per widget
 - **Invalidation** - `event Action Invalidated`, `Invalidate()`
+
+## Display and text
+
+- **Label** — single styled line of text (`Label.cs`)
+- **RichText** — multi-run styled text (`RichText.cs`)
+- **Link** — hyperlink-styled text (`Link.cs`)
+- **LargeText** — oversized banner text, styles via `LargeTextStyle` (`LargeText.cs`)
+- **FigletViewer** — FIGlet-style ASCII banner text (`FigletViewer.cs`)
+- **Badge** / **TitleBadge** — small status labels (`Badge.cs`, `TitleBadge.cs`)
+- **KeyValueList** — aligned key/value pairs (`KeyValueList.cs`)
+- **CodeViewer** — monospace source display (`CodeViewer.cs`)
+- **MarkdownRenderer** — renders Markdown to a display list (`MarkdownRenderer.cs`)
+
+## Input
+
+- **Button** — clickable button, `new Button(text)` (`Button.cs`)
+- **TextInput** — single-line text entry (`TextInput.cs`)
+- **Checkbox** — boolean toggle, `new Checkbox(label, checked)` (`Checkbox.cs`)
+- **Toggle** — on/off switch, `new Toggle(on, label)` (`Toggle.cs`)
+- **RadioGroup** — single selection from a group (`RadioGroup.cs`)
+- **Slider** — numeric value selector (`Slider.cs`)
+- **Select** — dropdown selection (`Select.cs`)
+- **ColorChooser** — color selection (`ColorChooser.cs`)
+
+## Containers and layout
+
+- **Panel** — bordered content area (`Panel.cs`)
+- **Card** — styled content card (`Card.cs`)
+- **GroupBox** — titled bordered group (`GroupBox.cs`)
+- **ScrollView** — scrollable viewport (`ScrollView.cs`)
+- **Accordion** — collapsible sections (`Accordion.cs`)
+- **Tabs** — tabbed interface (`Tabs.cs`)
+- **Carousel** — paged content (`Carousel.cs`)
+- **Splitter** — resizable split, `SplitterOrientation` (`Splitter.cs`)
+- **DockLayout** — docking regions via `DockRegion` (`Dock.cs`)
+- **Align** — alignment container, `HorizontalAlign` / `VerticalAlign` (`Align.cs`)
+- **StackLayers** — z-ordered overlays (`StackLayers.cs`)
+- **ResizeHandle** — drag-to-resize handle (`ResizeHandle.cs`)
+
+## Data display
+
+- **Table** — data grid with columns (`Table.cs`)
+- **TreeTable** — hierarchical table (`TreeTable.cs`)
+- **DataGrid** — column grid (`DataGrid.cs`)
+- **ListBox** — selectable item list (`ListBox.cs`)
+- **ListView** — item list view (`ListView.cs`)
+- **TreeView** — hierarchical tree, `ITreeNode` / `Node` (`TreeView.cs`)
+- **VirtualizedList** — windowed list for large collections (`VirtualizedList.cs`)
+- **VirtualizedGrid** — windowed grid for large collections (`VirtualizedGrid.cs`)
+- **Pager** — page navigation (`Pager.cs`)
+
+## Charts and visualization
+
+- **BarChart** (`BarChart.cs`), **LineChart** (`LineChart.cs`),
+  **PieChart** (`PieChart.cs`), **ScatterPlot** (`ScatterPlot.cs`)
+- **Sparkline** (`Sparkline.cs`), **Histogram** (`Histogram.cs`),
+  **Heatmap** (`Heatmap.cs`), **BoxPlot** (`BoxPlot.cs`)
+- **BulletChart** (`BulletChart.cs`), **Candlestick** (`Candlestick.cs`),
+  **AsciiGraph** (`AsciiGraph.cs`)
+- **Gauge** (`Gauge.cs`), **ProgressBar** (`ProgressBar.cs`)
+- **GanttChart** (`GanttChart.cs`), **Timeline** (`Timeline.cs`),
+  **MapView** (`MapView.cs`)
+
+## Navigation and menus
+
+- **MenuBar** — application menu bar, `Menu` / `MenuItem` (`MenuBar.cs`)
+- **MenuPopup** — popup menu, `MenuBehaviorOptions` (`MenuPopup.cs`)
+- **ContextMenu** — context menu (`ContextMenu.cs`)
+- **CommandPalette** — searchable command list (`CommandPalette.cs`)
+- **Breadcrumbs** — navigation trail (`Breadcrumbs.cs`)
+- **HintPanel** — key-hint panel (`HintPanel.cs`)
+- **FocusRing** — focus-order helper (`FocusRing.cs`)
+- **Router** — view routing (`Router.cs`)
+
+## Dialogs and overlays
+
+- **ModalDialog** — modal dialog, `ModalResult` (`ModalDialog.cs`)
+- **AboutDialog** — about box (`AboutDialog.cs`)
+- **FileDialog** — file browser (read-only directory enumeration), `FileDialogMode` (`FileDialog.cs`)
+- **Toast** — transient notification (`Toast.cs`)
+- **Tooltip** — hover tooltip (`Tooltip.cs`)
+- **PreferencesPanel** — settings panel (`PreferencesPanel.cs`)
+- **FindReplacePanel** — find/replace UI (`FindReplacePanel.cs`)
+
+## Feedback and status
+
+- **StatusBar** — application status bar (`StatusBar.cs`)
+- **Spinner** — loading indicator (`Spinner.cs`)
+- **Bell** — terminal bell trigger (`Bell.cs`)
+
+## Editors and views
+
+- **EditorView** — text editor view (`EditorView.cs`)
+- **DiffViewer** — side-by-side / unified diff (`DiffViewer.cs`)
+- **ChatView** — chat transcript view (`ChatView.cs`)
+- **RealTimeLogView** — streaming log view (`RealTimeLogView.cs`)
+
+## CLI widgets (`Andy.Tui.CliWidgets`)
+
+Widgets tailored to command-line / chat-style interfaces:
+
+- **PromptLine** — input prompt line (`PromptLine.cs`)
+- **CommandOutput** / **CommandOutputView** — command output rendering (`CommandOutput.cs`, `CommandOutputView.cs`)
+- **FeedView** — scrolling feed of `IFeedItem` (user bubbles, code blocks, markdown, separators) (`FeedView.cs`)
+- **KeyHintsBar** — key-hint bar (`KeyHintsBar.cs`)
+- **MarkdownDisplay** — markdown output block (`MarkdownDisplay.cs`)
+- **StatusMessage** — status text (`StatusMessage.cs`)
+- **StatusLine** — single-line status text (`ToastStatus.cs`)
+- **Toast** — transient CLI status toast (`ToastStatus.cs`)
+- **TokenCounter** — token usage indicator (`TokenCounter.cs`)
+- **ResponseSeparatorItem** — response divider (`ResponseSeparator.cs`)
+
+## Usage example
+
+The following pattern is exercised by the runnable samples in
+[`examples/Andy.Tui.Examples/Program.cs`](../examples/Andy.Tui.Examples/Program.cs).
+Widgets draw into a `DisplayListBuilder`; they do not manage their own layout or
+event loop.
+
+```csharp
+using Andy.Tui.Widgets;
+using DL = Andy.Tui.DisplayList;
+using L = Andy.Tui.Layout;
+
+// Construct widgets via their constructors and Set* methods.
+var checkbox = new Checkbox("Receive updates", initial: true);
+var button = new Button("Submit");
+button.SetFocused(true);
+
+// Build a base display list, then let each widget append to a builder.
+var baseDl = new DL.DisplayListBuilder().Build();
+var builder = new DL.DisplayListBuilder();
+
+checkbox.Render(new L.Rect(2, 3, 40, 1), baseDl, builder);
+button.Render(new L.Rect(2, 5, 12, 1), baseDl, builder);
+
+// The compositor/backend turns builder.Build() into terminal output.
+var displayList = builder.Build();
+```
 
 ## Custom Widgets
 
@@ -227,3 +231,36 @@ IWidget widget = WidgetAdapter.FromRender(
         b.DrawText(new DL.TextRun((int)r.X, (int)r.Y, "external", fg, null, DL.CellAttrFlags.None)),
     desired: new L.Size(8, 1));
 ```
+
+## Planned / not implemented
+
+The following types appeared in earlier drafts of this catalog but are **not**
+present in the source tree. They are aspirational and tracked under the
+documentation-accuracy epic
+([#18](https://github.com/rivoli-ai/andy-tui2/issues/18)). Do not reference them
+in code:
+
+- `TextField`, `TextArea` — use **TextInput** for single-line entry;
+  multi-line editing is provided in a limited form by **EditorView**.
+- `Container`, `FlexBox`, `Grid`, `Stack`, `Spacer`, `Divider`, `Gap` — layout
+  is handled by the `Andy.Tui.Layout` engine and the container widgets above,
+  not by dedicated widget types of these names.
+- `Form`, `FormField`, `Validator`, `RequiredValidator`, `EmailValidator`,
+  `ErrorMessage` — there is no form/validation widget layer. Input-validation
+  primitives live in `Andy.Tui.Core` as `IValidator<T>` on data bindings, not as
+  widgets.
+- `DatePicker`, `TimePicker`, `ColorPicker`, `FilePicker`, `Calendar` — not
+  implemented (**ColorChooser** and **FileDialog** are the closest existing
+  widgets).
+- `Terminal` — there is no embedded-terminal widget; `TerminalCapabilities` in
+  `Andy.Tui.Backend.Terminal` is a capability-detection type, not a widget.
+- `Widget` base class and `IRenderContext` — do not exist; see
+  [How widgets work](#how-widgets-work).
+- `Editor` (syntax-highlighting editor), `Kanban`, `NetworkIndicator`,
+  `BatteryIndicator`, `ActivityIndicator`, `QRCode`, `Avatar`, `Image`,
+  `Skeleton`, `Alert`, `ConfirmDialog`, `MessageBox`, `Pagination`, `Stepper`,
+  `ToolBar`, `HUD`, `Console`, `Inspector`, `JsonViewer`, `Heading`,
+  `Paragraph`, `Text`, `Code`, `Icon`, `Switch`, `RadioButton` — not
+  implemented. Where a similar widget exists it is listed in the sections above
+  (for example **RadioGroup** instead of `RadioButton`, **Toggle** instead of
+  `Switch`).
