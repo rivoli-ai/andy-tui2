@@ -1,54 +1,54 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Andy.Tui is a dependency meta-package.
+
+    It ships no assemblies of its own. Instead it declares NuGet dependencies on
+    every published library so that `dotnet add package Andy.Tui` pulls the whole
+    framework in one step. Each referenced library is packed and published as its
+    own package (see Directory.Build.props IsPackable defaults and the release
+    workflow), and every ProjectReference below becomes a real package dependency
+    in the produced .nupkg.
+
+    CLI-widget decision: Andy.Tui.CliWidgets is an opt-in add-on published as its
+    own package that depends on this meta-package. It is intentionally NOT a
+    dependency here, because CliWidgets -> Andy.Tui -> CliWidgets would be a cycle.
+    Consumers who want the CLI widgets add `Andy.Tui.CliWidgets` explicitly.
+  -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Description>Meta-package for Andy.Tui v2. Aggregates the core libraries for convenience.</Description>
-    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet</PackageTags>
-    <PackageProjectUrl>https://github.com/rivoli-ai/andy-tui2</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/rivoli-ai/andy-tui2</RepositoryUrl>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <Description>Meta-package for Andy.Tui v2. Depends on every Andy.Tui library so a single package reference pulls in the whole reactive TUI framework.</Description>
+    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet;meta-package</PackageTags>
+
+    <!-- Pure meta-package: no compiled output of its own. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- NU5128: a dependency-only package declares no lib/ref assemblies. Expected for a meta-package. -->
+    <NoWarn>$(NoWarn);CS1591;NU5128</NoWarn>
   </PropertyGroup>
 
+  <!--
+    Real package dependencies. No PrivateAssets, so each referenced library is
+    emitted as a <dependency> in the produced nuspec (and its types flow to
+    consumers such as Andy.Tui.CliWidgets) instead of being hidden and hand-copied.
+  -->
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="/" />
-    <None Include="..\..\assets\andy_tui_icon.png" Pack="true" PackagePath="/" />
-  </ItemGroup>
-
-  <!-- Build dependencies but don't include as NuGet package references -->
-  <ItemGroup>
-    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" PrivateAssets="all" />
-    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" PrivateAssets="all" />
-  </ItemGroup>
-
-  <!-- Include all built DLLs in the package -->
-  <ItemGroup>
-    <None Include="..\Andy.Tui.Core\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Core.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Compose\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Compose.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Style\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Style.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Layout\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Layout.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Text\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Text.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.DisplayList\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.DisplayList.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Compositor\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Compositor.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Backend.Terminal\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Backend.Terminal.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Input\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Input.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Animations\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Animations.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Virtualization\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Virtualization.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Widgets\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Widgets.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-    <None Include="..\Andy.Tui.Observability\bin\$(Configuration)\$(TargetFramework)\Andy.Tui.Observability.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />
   </ItemGroup>
 
 </Project>

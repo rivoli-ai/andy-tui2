@@ -41,14 +41,27 @@ jobs:
         else
           VERSION=$(date +%Y.%m.%d)-rc.$GITHUB_RUN_NUMBER
         fi
-        
+
         echo "VERSION=$VERSION" >> $GITHUB_ENV
-        
-        dotnet pack src/Andy.Tui/Andy.Tui.csproj \
-          --configuration Release \
-          --no-build \
-          --output ./artifacts \
-          -p:PackageVersion=$VERSION
+
+        # Pack every documented library exactly once. Each src project produces
+        # its own package (the umbrella Andy.Tui is a dependency meta-package that
+        # references them; Andy.Tui.CliWidgets is an opt-in add-on). Iterating the
+        # src project files guarantees each documented package is emitted once and
+        # none are silently dropped.
+        for proj in $(find src -maxdepth 2 -name '*.csproj' | sort); do
+          echo "Packing $proj"
+          # No --no-build: some documented projects (e.g. Andy.Tui.CliWidgets)
+          # are not part of the solution graph yet, so let pack build each one
+          # from the already-restored Release output.
+          dotnet pack "$proj" \
+            --configuration Release \
+            --output ./artifacts \
+            -p:PackageVersion=$VERSION
+        done
+
+        echo "Produced packages:"
+        ls -1 ./artifacts/*.nupkg
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

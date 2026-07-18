@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>CLI-focused widgets for Andy.Tui v2 (prompt line, feed view, token counter, status messages and more). Opt-in add-on that depends on the Andy.Tui meta-package.</Description>
+    <PackageTags>tui;terminal;ui;cli;widgets;dotnet</PackageTags>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <!--
@@ -15,6 +18,9 @@
     dependencies and avoids relying on transitive build assets.
   -->
   <ItemGroup>
+    <!-- Opt-in add-on: depends on the Andy.Tui meta-package (post-redesign it re-exports every library, so its types flow transitively). -->
+    <ProjectReference Include="../Andy.Tui/Andy.Tui.csproj" />
+    <!-- Direct compile-time dependencies whose namespaces CLI widgets consume; declared explicitly so the reference graph is self-documenting. -->
     <ProjectReference Include="../Andy.Tui.DisplayList/Andy.Tui.DisplayList.csproj" />
     <ProjectReference Include="../Andy.Tui.Layout/Andy.Tui.Layout.csproj" />
     <ProjectReference Include="../Andy.Tui.Widgets/Andy.Tui.Widgets.csproj" />
