@@ -35,7 +35,13 @@ public sealed class TextInput
         // caret option when focused
         if (Focused && ShowCaret)
         {
-            int caretX = x + 1 + Math.Min(Cursor, maxChars);
+            // Measure the caret column in terminal cells (not UTF-16 code units)
+            // so it stays aligned with wide-glyph (2-column) rendering. Cursor is
+            // a UTF-16 index into Text; the text before it may occupy more columns
+            // than characters when it contains CJK/emoji graphemes.
+            int cursorIndex = Math.Min(Cursor, Text.Length);
+            int caretCols = Andy.Tui.Text.TerminalText.MeasureWidth(Text.Substring(0, cursorIndex));
+            int caretX = x + 1 + Math.Min(caretCols, maxChars);
             if (caretX < x + w - 1)
             {
                 builder.DrawText(new DL.TextRun(caretX, y, "|", new DL.Rgb24(240, 240, 240), Bg, DL.CellAttrFlags.None));

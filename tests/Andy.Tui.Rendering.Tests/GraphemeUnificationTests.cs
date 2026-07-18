@@ -116,7 +116,7 @@ public class GraphemeUnificationTests
         // The width the text service measures must equal the number of columns the
         // compositor actually advances across (lead + continuation cells).
         var content = "A漢\U0001F1EF\U0001F1F5B"; // 1 + 2 + 2 + 1 = 6 columns
-        int measured = TerminalText.MeasureWidth(content);
+        int measured = Andy.Tui.Text.TerminalText.MeasureWidth(content);
         Assert.Equal(6, measured);
 
         var g = Render(content, 10);
