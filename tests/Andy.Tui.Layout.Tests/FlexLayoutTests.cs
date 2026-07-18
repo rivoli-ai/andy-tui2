@@ -409,4 +409,42 @@ public class FlexLayoutTests
         });
         Assert.InRange(n1.ArrangedRect.Bottom, n2.ArrangedRect.Bottom - 1e-6, n2.ArrangedRect.Bottom + 1e-6);
     }
+
+    [Fact]
+    public void Display_None_Child_Is_Excluded_From_Flow()
+    {
+        // The hidden middle item must not consume space; the two visible items
+        // sit flush as if it were absent (50px item + 10px gap).
+        var container = ResolvedStyle.Default with { ColumnGap = new Length(10) };
+        var n1 = new FixedNode(50, 20);
+        var hidden = new FixedNode(50, 20);
+        var n3 = new FixedNode(50, 20);
+        FlexLayout.Layout(new Size(300, 60), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default),
+            (hidden, ResolvedStyle.Default with { Display = Display.None }),
+            (n3, ResolvedStyle.Default)
+        });
+
+        Assert.Equal(0, n1.ArrangedRect.X);
+        Assert.Equal(60, n3.ArrangedRect.X); // not 120: hidden item skipped
+        // Hidden item is never arranged, so it keeps its default (zero) rect.
+        Assert.Equal(default(Rect), hidden.ArrangedRect);
+    }
+
+    [Fact]
+    public void Container_Display_None_Arranges_Nothing()
+    {
+        var container = ResolvedStyle.Default with { Display = Display.None };
+        var n1 = new FixedNode(50, 20);
+        var n2 = new FixedNode(50, 20);
+        FlexLayout.Layout(new Size(300, 60), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default),
+            (n2, ResolvedStyle.Default)
+        });
+
+        Assert.Equal(default(Rect), n1.ArrangedRect);
+        Assert.Equal(default(Rect), n2.ArrangedRect);
+    }
 }

@@ -16,6 +16,12 @@ on:
 jobs:
   graph-build-test:
     runs-on: macos-latest
+    # The flexbox parity suite (real Chromium reference vs FlexLayout) is part of
+    # CI now. RUN_PARITY=true makes ci-graph-test.sh include the Playwright
+    # project in the graph test instead of excluding it, and gates the Chromium
+    # install/cache steps below. See #39.
+    env:
+      RUN_PARITY: 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -28,6 +34,15 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Validate solution membership
         run: ./scripts/validate-solution.sh
+      # The browser build is keyed on the pinned Microsoft.Playwright version so
+      # a cache hit only occurs when the exact browser revision is still valid.
+      - name: Cache Playwright browsers
+        if: env.RUN_PARITY == 'true'
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/Andy.Tui.Parity.Playwright/Andy.Tui.Parity.Playwright.csproj') }}
       - name: Install Playwright Browsers (for parity tests)
         if: env.RUN_PARITY == 'true'
         run: |
