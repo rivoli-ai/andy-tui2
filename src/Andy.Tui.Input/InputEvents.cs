@@ -23,5 +23,7 @@ public readonly record struct PasteEvent(string Text) : IInputEvent;
 
 public readonly record struct ResizeEvent(int Cols, int Rows) : IInputEvent;
 
+public readonly record struct FocusEvent(bool HasFocus) : IInputEvent;
+
 public enum ImeKind { Start, Update, End }
 public readonly record struct ImeEvent(ImeKind Kind, string Text) : IInputEvent;
