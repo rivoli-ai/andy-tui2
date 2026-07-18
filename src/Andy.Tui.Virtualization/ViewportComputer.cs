@@ -142,8 +142,10 @@ public static class ViewportComputer
         else if (heightIndex is not null)
         {
             // Prefix-sum fast path: measure/cache heights once, then binary-search to the first
-            // item intersecting the window instead of walking from index 0 every frame.
-            heightIndex.EnsureBuilt(n, measureByIndex);
+            // item intersecting the window instead of walking from index 0 every frame. Pass the
+            // collection's stable keys so a same-count reorder (or insert/remove) rebuilds the index
+            // and the fast path never diverges from the linear walk, which re-derives order per frame.
+            heightIndex.EnsureBuilt(n, collection.GetKey, measureByIndex);
             int start = heightIndex.FirstIntersecting(windowTop);
             for (int i = start; i < n; i++)
             {
