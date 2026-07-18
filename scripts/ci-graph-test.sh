@@ -99,7 +99,10 @@ echo "=============================================================="
 # ---------------------------------------------------------------------------
 if [[ "${REQUIRE_CLEAN}" == "true" ]]; then
   echo "==> Verifying clean checkout (no pre-existing bin/obj)"
-  STALE="$(find src tests examples -type d \( -name bin -o -name obj \) 2>/dev/null || true)"
+  # Scan the entire repository (including the root and benchmarks/) so any
+  # pre-existing build output fails the guard, not just output under
+  # src/tests/examples. Prune .git to avoid false positives from its internals.
+  STALE="$(find . -type d -name .git -prune -o -type d \( -name bin -o -name obj \) -print 2>/dev/null || true)"
   if [[ -n "${STALE}" ]]; then
     echo "::error::Pre-existing build output found; CI must run from a clean checkout:" >&2
     echo "${STALE}" >&2

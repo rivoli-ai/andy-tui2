@@ -63,8 +63,41 @@ public class CiProjectGraphTests
         var ci = ReadRepoFile(Path.Combine(".github", "workflows", "ci.yml"));
 
         Assert.Contains("scripts/ci-graph-test.sh", ci);
-        Assert.Contains("Debug", ci);
-        Assert.Contains("Release", ci);
+
+        // The word "Release" also appears in ci.yml's header comment, so a bare
+        // Contains("Release") check would still pass even if the Release matrix
+        // entry were dropped. Assert the strategy matrix itself lists BOTH
+        // configurations by parsing the inline "configuration: [ ... ]" list.
+        var configurations = ParseMatrixConfigurations(ci);
+        Assert.Contains("Debug", configurations);
+        Assert.Contains("Release", configurations);
+    }
+
+    /// <summary>
+    /// Extracts the values of the strategy matrix's inline "configuration"
+    /// list from a workflow file, e.g. "configuration: [ Debug, Release ]".
+    /// </summary>
+    private static System.Collections.Generic.HashSet<string> ParseMatrixConfigurations(string workflow)
+    {
+        var line = workflow
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Select(l => l.Trim())
+            .FirstOrDefault(l => l.StartsWith("configuration:")
+                              && l.Contains('[') && l.Contains(']'));
+
+        Assert.False(line is null,
+            "ci.yml must define an inline strategy matrix list 'configuration: [ ... ]'.");
+
+        var open = line!.IndexOf('[');
+        var close = line.IndexOf(']');
+        var inner = line.Substring(open + 1, close - open - 1);
+
+        return inner
+            .Split(',')
+            .Select(e => e.Trim())
+            .Where(e => e.Length > 0)
+            .ToHashSet();
     }
 
     [Fact]
