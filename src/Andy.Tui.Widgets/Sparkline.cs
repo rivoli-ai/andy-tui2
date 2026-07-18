@@ -6,7 +6,7 @@ using DL = Andy.Tui.DisplayList;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Sparkline
+    public sealed class Sparkline : WidgetBase
     {
         private IReadOnlyList<double> _values = Array.Empty<double>();
         private DL.Rgb24 _fg = new DL.Rgb24(120, 200, 255);
@@ -18,7 +18,13 @@ namespace Andy.Tui.Widgets
 
         public (int Width, int Height) Measure() => (_values.Count, 1);
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
+        {
+            var (mw, mh) = Measure();
+            return new L.Size(mw, mh);
+        }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

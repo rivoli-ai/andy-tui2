@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Candlestick
+    public sealed class Candlestick : WidgetBase
     {
         public readonly struct Candle
         {
@@ -19,7 +19,7 @@ namespace Andy.Tui.Widgets
         public void SetSeries(IEnumerable<Candle> series){ _data.Clear(); if (series!=null) _data.AddRange(series); }
         public void SetColors(DL.Rgb24 up, DL.Rgb24 down){_up=up;_down=down;}
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0||_data.Count==0) return;

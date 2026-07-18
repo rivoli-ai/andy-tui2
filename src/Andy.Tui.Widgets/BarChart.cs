@@ -6,7 +6,7 @@ using DL = Andy.Tui.DisplayList;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class BarChart
+    public sealed class BarChart : WidgetBase
     {
         private readonly List<(string Label, double Value)> _items = new();
         private DL.Rgb24 _fg = new DL.Rgb24(220, 220, 220);
@@ -26,7 +26,13 @@ namespace Andy.Tui.Widgets
             return (labelWidth + 1 + 10, Math.Max(1, _items.Count));
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
+        {
+            var (mw, mh) = Measure();
+            return new L.Size(mw, mh);
+        }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

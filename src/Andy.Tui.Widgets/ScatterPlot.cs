@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class ScatterPlot
+    public sealed class ScatterPlot : WidgetBase
     {
         private readonly List<(double X,double Y)> _points = new();
         private DL.Rgb24 _point = new DL.Rgb24(200,200,80);
@@ -14,7 +14,7 @@ namespace Andy.Tui.Widgets
         public void SetPoints(IEnumerable<(double X,double Y)> pts) { _points.Clear(); if (pts!=null) _points.AddRange(pts); }
         public void SetColors(DL.Rgb24 point, DL.Rgb24 bg) { _point = point; _bg = bg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0||_points.Count==0) return;

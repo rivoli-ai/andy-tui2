@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class LineChart
+    public sealed class LineChart : WidgetBase
     {
         private readonly List<double> _values = new();
         private DL.Rgb24 _line = new DL.Rgb24(200,200,80);
@@ -16,7 +16,7 @@ namespace Andy.Tui.Widgets
         public void SetColors(DL.Rgb24 line, DL.Rgb24 area) { _line = line; _area = area; }
         public void SetFillArea(bool fill) { _fillArea = fill; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=1||h<=1||_values.Count==0) return;

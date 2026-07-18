@@ -6,14 +6,14 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class BoxPlot
+    public sealed class BoxPlot : WidgetBase
     {
         private readonly List<double> _series = new();
         private DL.Rgb24 _fg = new DL.Rgb24(200,200,80);
         private DL.Rgb24 _bg = new DL.Rgb24(0,0,0);
         public void SetSeries(IEnumerable<double> v) { _series.Clear(); if (v!=null) _series.AddRange(v); }
         public void SetColors(DL.Rgb24 fg, DL.Rgb24 bg) { _fg = fg; _bg = bg; }
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=2||h<=2||_series.Count==0) return;
