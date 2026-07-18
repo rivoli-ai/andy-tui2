@@ -3,7 +3,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Table
+public sealed class Table : WidgetBase
 {
     private readonly List<string> _columns = new();
     private readonly List<string[]> _rows = new();
@@ -35,7 +35,7 @@ public sealed class Table
         }
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
         builder.PushClip(new DL.ClipPush(x, y, w, h));
