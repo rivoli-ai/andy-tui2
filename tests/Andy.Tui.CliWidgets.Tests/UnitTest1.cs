@@ -67,10 +67,10 @@ public class UserBubbleItemTests
         var textRuns = dl.Ops.OfType<DL.TextRun>().ToList();
         var textWithContent = textRuns.FirstOrDefault(tr => tr.Content == "test");
         
-        Assert.NotNull(textWithContent);
-        Assert.Equal(150, textWithContent.Fg.R);
-        Assert.Equal(200, textWithContent.Fg.G);
-        Assert.Equal(255, textWithContent.Fg.B);
+        Assert.NotNull(textWithContent.Fg);
+        Assert.Equal(150, textWithContent.Fg!.Value.R);
+        Assert.Equal(200, textWithContent.Fg!.Value.G);
+        Assert.Equal(255, textWithContent.Fg!.Value.B);
     }
     
     [Fact]
@@ -90,15 +90,15 @@ public class UserBubbleItemTests
         var textRuns = dl.Ops.OfType<DL.TextRun>().ToList();
         
         // H1 should be blue (100,200,255)
-        var h1Runs = textRuns.Where(tr => tr.Fg.R == 100 && tr.Fg.G == 200 && tr.Fg.B == 255).ToList();
+        var h1Runs = textRuns.Where(tr => tr.Fg?.R == 100 && tr.Fg?.G == 200 && tr.Fg?.B == 255).ToList();
         Assert.NotEmpty(h1Runs);
-        
-        // H2 should be green (150,220,150)  
-        var h2Runs = textRuns.Where(tr => tr.Fg.R == 150 && tr.Fg.G == 220 && tr.Fg.B == 150).ToList();
+
+        // H2 should be green (150,220,150)
+        var h2Runs = textRuns.Where(tr => tr.Fg?.R == 150 && tr.Fg?.G == 220 && tr.Fg?.B == 150).ToList();
         Assert.NotEmpty(h2Runs);
-        
+
         // H3 should be orange (255,180,100)
-        var h3Runs = textRuns.Where(tr => tr.Fg.R == 255 && tr.Fg.G == 180 && tr.Fg.B == 100).ToList();
+        var h3Runs = textRuns.Where(tr => tr.Fg?.R == 255 && tr.Fg?.G == 180 && tr.Fg?.B == 100).ToList();
         Assert.NotEmpty(h3Runs);
     }
     
@@ -119,8 +119,8 @@ public class UserBubbleItemTests
         var textRuns = dl.Ops.OfType<DL.TextRun>().ToList();
         
         // List markers should be light red (255,150,150) and bold
-        var listMarkers = textRuns.Where(tr => 
-            tr.Fg.R == 255 && tr.Fg.G == 150 && tr.Fg.B == 150 && 
+        var listMarkers = textRuns.Where(tr =>
+            tr.Fg?.R == 255 && tr.Fg?.G == 150 && tr.Fg?.B == 150 &&
             tr.Attrs.HasFlag(DL.CellAttrFlags.Bold)).ToList();
         Assert.NotEmpty(listMarkers);
         
@@ -158,8 +158,8 @@ public class UserBubbleItemTests
         
         // Line numbers should have different color than code content
         var lineNumColor = new DL.Rgb24(120,140,160);
-        var lineNumberRuns = textRuns.Where(tr => 
-            tr.Fg.R == lineNumColor.R && tr.Fg.G == lineNumColor.G && tr.Fg.B == lineNumColor.B).ToList();
+        var lineNumberRuns = textRuns.Where(tr =>
+            tr.Fg?.R == lineNumColor.R && tr.Fg?.G == lineNumColor.G && tr.Fg?.B == lineNumColor.B).ToList();
         Assert.NotEmpty(lineNumberRuns);
         
         // Should have actual code content
