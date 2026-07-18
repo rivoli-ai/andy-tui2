@@ -5,12 +5,12 @@ namespace Andy.Tui.Core;
 /// render loop. Resize events update this state so the next arranged and rendered
 /// frame reflects the new terminal size.
 /// </summary>
-public sealed class ViewportState
+public sealed class CoreViewportState
 {
     public int Width { get; private set; }
     public int Height { get; private set; }
 
-    public ViewportState(int width, int height)
+    public CoreViewportState(int width, int height)
     {
         Width = width;
         Height = height;

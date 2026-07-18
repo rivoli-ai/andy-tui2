@@ -71,12 +71,37 @@ public class EventIntegrationMouseTests
     }
 
     [Fact]
+    public void Second_Down_Before_Up_Does_Not_Strand_First_Nodes_Active()
+    {
+        var bus = new InvalidationBus();
+        var states = new PseudoStateRegistry();
+        var focus = new FocusManager();
+        var rects = new Dictionary<int, Rect> { { 1, new Rect(0, 0, 2, 1) }, { 2, new Rect(3, 0, 2, 1) } };
+        var integ = new EventIntegration(bus, states, focus, () => rects);
+
+        // Press node 1 -> Active.
+        integ.Handle(new MouseEvent(MouseKind.Down, 1, 0, MouseButton.Left, KeyModifiers.None));
+        Assert.True(states.Get(1).HasFlag(PseudoState.Active));
+
+        // A second Down on node 2 with the same button arrives before node 1 saw its Up
+        // (e.g. a lost release). Node 1's Active must be cleared, not left stranded.
+        integ.Handle(new MouseEvent(MouseKind.Down, 3, 0, MouseButton.Left, KeyModifiers.None));
+        Assert.False(states.Get(1).HasFlag(PseudoState.Active));
+        Assert.True(states.Get(2).HasFlag(PseudoState.Active));
+
+        // The Up for node 2 clears the correct (current) capture and leaves nothing stuck.
+        integ.Handle(new MouseEvent(MouseKind.Up, 3, 0, MouseButton.Left, KeyModifiers.None));
+        Assert.False(states.Get(1).HasFlag(PseudoState.Active));
+        Assert.False(states.Get(2).HasFlag(PseudoState.Active));
+    }
+
+    [Fact]
     public void Resize_Propagates_New_Dimensions_To_Viewport()
     {
         var bus = new InvalidationBus();
         var states = new PseudoStateRegistry();
         var focus = new FocusManager();
-        var viewport = new ViewportState(80, 24);
+        var viewport = new CoreViewportState(80, 24);
         var integ = new EventIntegration(bus, states, focus, () => new Dictionary<int, Rect>(), viewport);
         bool requested = false; bus.RecomposeRequested += () => requested = true;
 

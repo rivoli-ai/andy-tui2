@@ -70,7 +70,7 @@ public class AppLoopTests
     {
         var bus = new InvalidationBus();
         var sched = new FrameScheduler(new SimpleManualClock());
-        var viewport = new ViewportState(4, 1);
+        var viewport = new CoreViewportState(4, 1);
         // The arranged frame reads the mutable viewport, drawing content anchored to the
         // right edge so a resize visibly changes the rendered output.
         DisplayList.DisplayList Build()

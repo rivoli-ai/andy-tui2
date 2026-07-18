@@ -10,22 +10,22 @@ public sealed class AppLoop
     private readonly InvalidationBus _bus;
     private readonly FrameScheduler _scheduler;
     private readonly Func<DL.DisplayList> _buildDl;
-    private readonly ViewportState _viewport;
+    private readonly CoreViewportState _viewport;
     private readonly TerminalCapabilities _caps;
     private readonly IPtyIo _pty;
 
     public AppLoop(InvalidationBus bus, FrameScheduler scheduler, Func<DL.DisplayList> buildDl, (int W, int H) viewport, TerminalCapabilities caps, IPtyIo pty)
-        : this(bus, scheduler, buildDl, new ViewportState(viewport.W, viewport.H), caps, pty)
+        : this(bus, scheduler, buildDl, new CoreViewportState(viewport.W, viewport.H), caps, pty)
     {
     }
 
-    public AppLoop(InvalidationBus bus, FrameScheduler scheduler, Func<DL.DisplayList> buildDl, ViewportState viewport, TerminalCapabilities caps, IPtyIo pty)
+    public AppLoop(InvalidationBus bus, FrameScheduler scheduler, Func<DL.DisplayList> buildDl, CoreViewportState viewport, TerminalCapabilities caps, IPtyIo pty)
     {
         _bus = bus; _scheduler = scheduler; _buildDl = buildDl; _viewport = viewport; _caps = caps; _pty = pty;
     }
 
     /// <summary>The mutable viewport state driving layout and rendering.</summary>
-    public ViewportState Viewport => _viewport;
+    public CoreViewportState Viewport => _viewport;
 
     /// <summary>Update the viewport; returns true if the size changed.</summary>
     public bool Resize(int width, int height) => _viewport.Resize(width, height);
