@@ -5,7 +5,7 @@ using IN = Andy.Tui.Input;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Checkbox : WidgetBase
+public sealed class Checkbox : WidgetBase, IThemeable, IStyleable
 {
     public bool Checked { get; private set; }
     public string Text { get; private set; }
@@ -14,6 +14,23 @@ public sealed class Checkbox : WidgetBase
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
 
     public override bool Focusable => true;
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Bg = theme.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(40, 40, 40));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+        Invalidate();
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+        Invalidate();
+    }
 
     public Checkbox(string text, bool initial = false)
     {

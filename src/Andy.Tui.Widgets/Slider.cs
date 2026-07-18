@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Slider
+public sealed class Slider : IThemeable, IStyleable
 {
     private double _value; // 0..1
     public double Value { get => _value; set => _value = Math.Clamp(value, 0.0, 1.0); }
@@ -12,6 +12,22 @@ public sealed class Slider
     public DL.Rgb24 Track { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceHover, new DL.Rgb24(60, 60, 60));
     public DL.Rgb24 Thumb { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(200, 200, 200));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Bg = theme.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
+        Track = theme.GetRgb(ST.ThemeToken.SurfaceHover, new DL.Rgb24(60, 60, 60));
+        Thumb = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(200, 200, 200));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Thumb = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {

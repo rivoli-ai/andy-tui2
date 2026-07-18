@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class ListView
+    public sealed class ListView : IThemeable, IStyleable
     {
         private readonly List<string> _items = new();
         private readonly HashSet<int> _selected = new();
@@ -16,6 +16,21 @@ namespace Andy.Tui.Widgets
         public DL.Rgb24 ItemFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
         public DL.Rgb24 SelFg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.AccentForeground, new DL.Rgb24(0, 0, 0));
         public DL.Rgb24 SelBg = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(200, 200, 80));
+
+        /// <inheritdoc />
+        public void ApplyTheme(ST.Theme theme)
+        {
+            Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(80, 80, 80));
+            ItemFg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+            SelFg = theme.GetRgb(ST.ThemeToken.AccentForeground, new DL.Rgb24(0, 0, 0));
+            SelBg = theme.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(200, 200, 80));
+        }
+
+        /// <inheritdoc />
+        public void ApplyStyle(in ST.ResolvedStyle style)
+        {
+            if (style.Color.ToRgb24() is { } fg) ItemFg = fg;
+        }
 
         public void SetItems(IEnumerable<string> items)
         { _items.Clear(); if (items != null) _items.AddRange(items); _scroll = 0; _cursor = 0; _selected.Clear(); }

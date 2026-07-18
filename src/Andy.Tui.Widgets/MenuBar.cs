@@ -44,13 +44,28 @@ public sealed class Menu
     }
 }
 
-public sealed class MenuBar
+public sealed class MenuBar : IThemeable, IStyleable
 {
     private readonly List<(string Title, Menu Menu)> _menus = new();
     public IReadOnlyList<(string Title, Menu Menu)> Menus => _menus;
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Surface, new(30, 30, 30));
     public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(200, 200, 80));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Bg = theme.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(30, 30, 30));
+        Accent = theme.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(200, 200, 80));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public MenuBar Add(string title, Menu menu)
     { _menus.Add((title, menu)); return this; }

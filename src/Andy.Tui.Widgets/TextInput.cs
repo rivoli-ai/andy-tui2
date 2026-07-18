@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class TextInput
+public sealed class TextInput : IThemeable, IStyleable
 {
     public bool ShowCaret { get; private set; } = true;
     public string Text { get; private set; } = string.Empty;
@@ -13,6 +13,21 @@ public sealed class TextInput
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Bg = theme.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public void SetText(string text) { Text = text; Cursor = Math.Min(Cursor, Text.Length); }
     public void SetCursor(int pos) => Cursor = Math.Clamp(pos, 0, Text.Length);

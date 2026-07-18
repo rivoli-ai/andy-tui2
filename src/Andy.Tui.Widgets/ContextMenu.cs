@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class ContextMenu
+public sealed class ContextMenu : IThemeable, IStyleable
 {
     private Menu _menu = new();
     private int _selectedIndex;
@@ -13,6 +13,22 @@ public sealed class ContextMenu
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new(220, 220, 220));
     public DL.Rgb24 SelBg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSelected, new(60, 60, 90));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(100, 100, 100));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Bg = theme.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        SelBg = theme.GetRgb(ST.ThemeToken.SurfaceSelected, new DL.Rgb24(60, 60, 90));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public void SetMenu(Menu menu) => _menu = menu;
     public void SetSelectedIndex(int index) => _selectedIndex = Math.Max(0, Math.Min(_menu.Items.Count - 1, index));

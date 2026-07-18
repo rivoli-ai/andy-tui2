@@ -55,8 +55,12 @@ public readonly record struct ResolvedStyle(
         RowGap: Length.Zero,
         ColumnGap: Length.Zero,
         Overflow: Overflow.Visible,
-        Color: RgbaColor.FromRgb(255, 255, 255),
-        BackgroundColor: RgbaColor.FromRgb(0, 0, 0),
+        // Colors default to transparent (the terminal default) so that a node with no
+        // explicit color/background-color rule resolves to a transparent value. IStyleable
+        // widgets treat transparent as "unset" and keep their theme-seeded palette instead
+        // of being clobbered by an opaque default. See IStyleable.ApplyStyle.
+        Color: RgbaColor.Transparent,
+        BackgroundColor: RgbaColor.Transparent,
         FontWeight: FontWeight.Normal,
         FontStyle: FontStyle.Normal,
         TextDecoration: TextDecoration.None

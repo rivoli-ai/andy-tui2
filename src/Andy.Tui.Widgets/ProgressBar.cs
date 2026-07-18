@@ -4,13 +4,30 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class ProgressBar : WidgetBase
+public sealed class ProgressBar : WidgetBase, IThemeable, IStyleable
 {
     private double _value; // 0..1
     public double Value { get => _value; set { _value = Math.Clamp(value, 0.0, 1.0); Invalidate(); } }
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(40, 40, 40));
     public DL.Rgb24 Fill { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Info, new DL.Rgb24(60, 140, 220));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Bg = theme.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(40, 40, 40));
+        Fill = theme.GetRgb(ST.ThemeToken.Info, new DL.Rgb24(60, 140, 220));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+        Invalidate();
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fill = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+        Invalidate();
+    }
 
     protected override L.Size MeasureCore(L.Size available) => new(available.Width > 0 ? available.Width : 10, 1);
 

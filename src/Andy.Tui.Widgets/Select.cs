@@ -6,7 +6,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Select
+public sealed class Select : IThemeable, IStyleable
 {
     private string[] _items = Array.Empty<string>();
     private int _selectedIndex;
@@ -17,6 +17,22 @@ public sealed class Select
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new(90, 90, 90));
     public DL.Rgb24 Accent { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Accent, new(180, 180, 220));
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Bg = theme.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(90, 90, 90));
+        Accent = theme.GetRgb(ST.ThemeToken.Accent, new DL.Rgb24(180, 180, 220));
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+    }
 
     public void SetItems(string[] items)
     {

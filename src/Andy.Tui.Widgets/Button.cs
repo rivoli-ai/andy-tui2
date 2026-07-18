@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Button : WidgetBase
+public sealed class Button : WidgetBase, IThemeable, IStyleable
 {
     public string Text { get; private set; }
 
@@ -28,6 +28,26 @@ public sealed class Button : WidgetBase
     public void SetText(string text) { Text = text; Invalidate(); }
     public void SetHovered(bool hovered) { IsHovered = hovered; Invalidate(); }
     public void SetActive(bool active) { IsActive = active; Invalidate(); }
+
+    /// <inheritdoc />
+    public void ApplyTheme(ST.Theme theme)
+    {
+        Fg = theme.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
+        Bg = theme.GetRgb(ST.ThemeToken.Surface, new DL.Rgb24(40, 40, 40));
+        BgHover = theme.GetRgb(ST.ThemeToken.SurfaceHover, new DL.Rgb24(55, 55, 55));
+        BgActive = theme.GetRgb(ST.ThemeToken.SurfaceActive, new DL.Rgb24(80, 80, 120));
+        BgDisabled = theme.GetRgb(ST.ThemeToken.SurfaceDisabled, new DL.Rgb24(30, 30, 30));
+        Border = theme.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
+        Invalidate();
+    }
+
+    /// <inheritdoc />
+    public void ApplyStyle(in ST.ResolvedStyle style)
+    {
+        if (style.Color.ToRgb24() is { } fg) Fg = fg;
+        if (style.BackgroundColor.ToRgb24() is { } bg) Bg = bg;
+        Invalidate();
+    }
 
     protected override L.Size MeasureCore(L.Size available) => new((Text?.Length ?? 0) + 4, 1);
 
