@@ -236,6 +236,30 @@ public class CssConformanceTests
     }
 
     [Fact]
+    public void Media_Comma_List_Is_Logical_Or()
+    {
+        // A comma in a media query list is a logical OR: the rule applies when EITHER query
+        // matches, not only when both do (which an AND would require).
+        var css = "@media (max-width: 100),(min-width: 500) { .m { color: green; } }";
+        var sheet = CssParser.Parse(css);
+        Assert.Empty(sheet.Diagnostics);
+        var resolver = new StyleResolver();
+        var node = new Node("div", classes: new[] { "m" });
+        var green = RgbaColor.FromRgb(0, 128, 0);
+
+        // Matches the first query only.
+        var narrow = resolver.Compute(node, new[] { sheet }, new EnvironmentContext { ViewportWidth = 50 });
+        // Matches the second query only.
+        var wide = resolver.Compute(node, new[] { sheet }, new EnvironmentContext { ViewportWidth = 600 });
+        // Matches neither query.
+        var mid = resolver.Compute(node, new[] { sheet }, new EnvironmentContext { ViewportWidth = 300 });
+
+        Assert.Equal(green, narrow.Color);
+        Assert.Equal(green, wide.Color);
+        Assert.Equal(ResolvedStyle.Default.Color, mid.Color);
+    }
+
+    [Fact]
     public void Legacy_Prefix_Media_Still_Supported()
     {
         var css = "@media(min-width: 100) .wide { color: blue; }";
@@ -293,15 +317,29 @@ public class CssConformanceTests
     [Fact]
     public void Var_Cycle_Does_Not_Throw_And_Falls_Back()
     {
-        // Self-referential custom property must not loop forever.
+        // Self-referential custom property must not loop forever, and the reference must fall
+        // back to the declared fallback (green) rather than leaving the value unresolved.
         var css = "#x { --a: var(--a); } #x { color: var(--a, green); }";
         var node = new Node("div", id: "x");
+        ResolvedStyle style = default!;
         var ex = Record.Exception(() =>
         {
             var sheet = CssParser.Parse(css);
-            _ = new StyleResolver().Compute(node, new[] { sheet });
+            style = new StyleResolver().Compute(node, new[] { sheet });
         });
         Assert.Null(ex);
+        Assert.Equal(RgbaColor.FromRgb(0, 128, 0), style.Color);
+    }
+
+    [Fact]
+    public void Var_Mutual_Cycle_Falls_Back_To_Declared_Fallback()
+    {
+        // Two custom properties that reference each other must not loop and must fall back.
+        var css = "#x { --a: var(--b); --b: var(--a); } #x { color: var(--a, green); }";
+        var node = new Node("div", id: "x");
+        var sheet = CssParser.Parse(css);
+        var style = new StyleResolver().Compute(node, new[] { sheet });
+        Assert.Equal(RgbaColor.FromRgb(0, 128, 0), style.Color);
     }
 
     // ---- Unsupported / malformed declarations produce diagnostics ----

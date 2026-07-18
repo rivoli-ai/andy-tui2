@@ -131,7 +131,7 @@ public sealed class StyleResolver
         return a.SourceOrder.CompareTo(b.SourceOrder);
     }
 
-    private static object ResolveVars(object value, IDictionary<string, DeclWinner> winners, int depth = 0)
+    private static object ResolveVars(object value, IDictionary<string, DeclWinner> winners, int depth = 0, HashSet<string>? active = null)
     {
         if (value is not string original) return value;
         var s = original.Trim();
@@ -162,16 +162,26 @@ public sealed class StyleResolver
 
         if (!name.StartsWith("--", StringComparison.Ordinal)) return value; // invalid custom-property name
 
-        if (winners.TryGetValue(name, out var w))
+        // Follow the reference unless doing so would revisit a name already on the current
+        // resolution chain (a self/mutual reference cycle). On a cycle we skip the reference
+        // and fall through to the declared fallback, matching CSS custom-property semantics.
+        bool cyclic = active is not null && active.Contains(name);
+        if (!cyclic && winners.TryGetValue(name, out var w))
         {
-            // Guard against self/mutual reference cycles: if the referenced value points back
-            // to this same name, the depth guard stops the recursion and we fall through.
-            return ResolveVars(w.Value, winners, depth + 1);
+            active ??= new HashSet<string>(StringComparer.Ordinal);
+            active.Add(name);
+            var resolved = ResolveVars(w.Value, winners, depth + 1, active);
+            active.Remove(name);
+
+            // A concrete value wins. If the reference resolved back to an unresolvable var()
+            // token (e.g. a cycle deeper in the chain), fall through to the fallback below.
+            if (resolved is not string rs || !rs.TrimStart().StartsWith("var(", StringComparison.Ordinal))
+                return resolved;
         }
 
         if (!string.IsNullOrEmpty(fallback))
         {
-            return ResolveVars(fallback, winners, depth + 1);
+            return ResolveVars(fallback, winners, depth + 1, active);
         }
         return value;
     }

@@ -419,9 +419,34 @@ public static class CssParser
 
     private static Func<EnvironmentContext, bool>? ParseMediaCondition(string prelude, List<CssDiagnostic> diagnostics)
     {
-        // Strip the leading @media keyword; the remainder holds feature groups (and possibly
-        // a trailing selector in the legacy form, which contains no parentheses).
+        // Strip the leading @media keyword; the remainder is a comma-separated media query
+        // list. A comma is a logical OR in CSS, so each query is evaluated independently and
+        // the whole condition matches if any of them does.
         string rest = prelude[("@media".Length)..];
+
+        var queries = new List<Func<EnvironmentContext, bool>>();
+        foreach (var segment in SplitTopLevelCommas(rest))
+        {
+            var query = ParseMediaQuery(segment, prelude, diagnostics);
+            if (query is null) return null; // diagnostic already emitted
+            queries.Add(query);
+        }
+
+        if (queries.Count == 0)
+        {
+            diagnostics.Add(CssDiagnostic.Warning($"@media query has no recognised feature: '{Truncate(prelude)}'."));
+            return null;
+        }
+        if (queries.Count == 1) return queries[0];
+        return env => queries.Exists(q => q(env));
+    }
+
+    /// <summary>
+    /// Parses a single media query (one comma-separated segment). Feature groups within a
+    /// segment are ANDed together, matching the CSS <c>and</c> semantics.
+    /// </summary>
+    private static Func<EnvironmentContext, bool>? ParseMediaQuery(string rest, string prelude, List<CssDiagnostic> diagnostics)
+    {
         var features = new List<Func<EnvironmentContext, bool>>();
         int i = 0;
         while (true)
@@ -448,6 +473,27 @@ public static class CssParser
         }
         if (features.Count == 1) return features[0];
         return env => features.TrueForAll(f => f(env));
+    }
+
+    /// <summary>Splits <paramref name="s"/> on commas that sit outside any parentheses.</summary>
+    private static List<string> SplitTopLevelCommas(string s)
+    {
+        var parts = new List<string>();
+        int level = 0;
+        int start = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i];
+            if (c == '(') level++;
+            else if (c == ')') { if (level > 0) level--; }
+            else if (c == ',' && level == 0)
+            {
+                parts.Add(s[start..i]);
+                start = i + 1;
+            }
+        }
+        parts.Add(s[start..]);
+        return parts;
     }
 
     private static Func<EnvironmentContext, bool>? ParseMediaFeature(string inner, string prelude, List<CssDiagnostic> diagnostics)
