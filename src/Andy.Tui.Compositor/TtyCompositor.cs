@@ -1,4 +1,5 @@
 using Andy.Tui.DisplayList;
+using Andy.Tui.Text;
 
 namespace Andy.Tui.Compositor;
 
@@ -309,49 +310,31 @@ public sealed class TtyCompositor : ICompositor
         int clipRight = Math.Min(grid.Width, clip.x + clip.w);
         if (clipRight <= clipLeft) return;
 
-        string s = t.Content;
         int x = t.X;
         int lastLeadX = int.MinValue; // column of the last lead cell written on this row
-        int i = 0;
-        while (i < s.Length)
+
+        // Trust boundary: terminal control characters must never enter the cell
+        // grid. The encoder writes cell text verbatim, so a control byte in ordinary
+        // content (logs, Markdown, chat, filenames, network data) would execute as a
+        // terminal command (cursor moves, OSC 8/52, BEL, screen clears), and clipping
+        // or scrolling could cut a multi-byte sequence before its terminator. Rewrite
+        // every control code point to a visible, inert single-cell placeholder BEFORE
+        // segmentation so untrusted text is displayed rather than executed. Trusted
+        // control flows through typed ops (coordinates, colors, attributes), never Content.
+        string content = Andy.Tui.DisplayList.TerminalText.Sanitize(t.Content);
+
+        // Iterate whole grapheme clusters via the shared text service so a flag,
+        // skin-tone, ZWJ family, keycap, variation-selector, or combining-mark
+        // sequence is treated as ONE user-perceived character occupying its true
+        // number of terminal columns — never split across cells or mismeasured.
+        foreach (var grapheme in Andy.Tui.Text.TerminalText.EnumerateGraphemes(content))
         {
-            // Decode one Unicode scalar, combining a surrogate pair into one grapheme.
-            char c0 = s[i];
-            int codePoint;
-            string grapheme;
-            if (char.IsHighSurrogate(c0) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-            {
-                codePoint = char.ConvertToUtf32(c0, s[i + 1]);
-                grapheme = s.Substring(i, 2);
-                i += 2;
-            }
-            else
-            {
-                codePoint = c0;
-                grapheme = c0.ToString();
-                i += 1;
-            }
+            int width = Andy.Tui.Text.TerminalText.GraphemeCellWidth(grapheme);
 
-            // Trust boundary: terminal control characters must never enter the cell
-            // grid. If they did, the encoder would write them verbatim to the terminal
-            // (executing cursor moves, OSC 8/52, BEL, screen clears, etc.), and clipping
-            // or scrolling could cut a multi-byte sequence before its terminator. Rewrite
-            // each control code point to a visible, inert single-cell placeholder so
-            // untrusted text (logs, Markdown, chat, filenames, network data) is displayed
-            // rather than executed. Trusted control flows through typed ops (coordinates,
-            // colors, attributes), never through Content.
-            if (TerminalText.IsControl(codePoint))
-            {
-                grapheme = TerminalText.ReplacementFor(codePoint)!;
-                // The replacement is always a single visible BMP scalar, so recompute the
-                // code point to drive the width/zero-width logic below (yields width 1).
-                codePoint = char.ConvertToUtf32(grapheme, 0);
-            }
-
-            // Zero-width combiners (variation selectors, ZWJ, combining marks) attach to
-            // the preceding glyph rather than consuming a column, so emoji presentation
-            // sequences (e.g. "\U0001F5A5️") and ZWJ sequences render as one cell.
-            if (IsZeroWidth(codePoint))
+            // A zero-width cluster (e.g. a stray leading combining mark) consumes
+            // no column; attach it to the preceding lead cell so the cluster is
+            // preserved intact rather than dropped or emitted on its own.
+            if (width == 0)
             {
                 if (lastLeadX >= clipLeft && lastLeadX < clipRight)
                 {
@@ -360,8 +343,6 @@ public sealed class TtyCompositor : ICompositor
                 }
                 continue;
             }
-
-            int width = IsWideCodePoint(codePoint) ? 2 : 1;
 
             // Glyph wholly left of the clip: advance without drawing.
             if (x + width <= clipLeft) { x += width; continue; }
@@ -394,37 +375,5 @@ public sealed class TtyCompositor : ICompositor
             }
             x += width;
         }
-    }
-
-    private static bool IsZeroWidth(int codePoint)
-    {
-        return
-            codePoint == 0x200D || codePoint == 0x200C ||      // ZWJ / ZWNJ
-            (codePoint >= 0xFE00 && codePoint <= 0xFE0F) ||    // variation selectors
-            (codePoint >= 0x0300 && codePoint <= 0x036F) ||    // combining diacritical marks
-            (codePoint >= 0x1AB0 && codePoint <= 0x1AFF) ||
-            (codePoint >= 0x1DC0 && codePoint <= 0x1DFF) ||
-            (codePoint >= 0x20D0 && codePoint <= 0x20FF) ||
-            (codePoint >= 0xFE20 && codePoint <= 0xFE2F) ||
-            (codePoint >= 0xE0100 && codePoint <= 0xE01EF);    // variation selectors supplement
-    }
-
-    private static bool IsWideCodePoint(int codePoint)
-    {
-        return
-            (codePoint >= 0x1100 && codePoint <= 0x115F) ||
-            (codePoint == 0x2329 || codePoint == 0x232A) ||
-            (codePoint >= 0x2E80 && codePoint <= 0xA4CF) ||
-            (codePoint >= 0xAC00 && codePoint <= 0xD7A3) ||
-            (codePoint >= 0xF900 && codePoint <= 0xFAFF) ||
-            (codePoint >= 0xFE10 && codePoint <= 0xFE19) ||
-            (codePoint >= 0xFE30 && codePoint <= 0xFE6F) ||
-            (codePoint >= 0xFF00 && codePoint <= 0xFF60) ||
-            (codePoint >= 0xFFE0 && codePoint <= 0xFFE6) ||
-            (codePoint >= 0x1F300 && codePoint <= 0x1F64F) ||
-            (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // transport & map symbols
-            (codePoint >= 0x1F900 && codePoint <= 0x1F9FF) ||
-            (codePoint >= 0x1FA00 && codePoint <= 0x1FAFF) || // symbols & pictographs extended-A
-            (codePoint >= 0x20000 && codePoint <= 0x3FFFD);
     }
 }
