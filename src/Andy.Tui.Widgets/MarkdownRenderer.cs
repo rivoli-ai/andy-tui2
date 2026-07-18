@@ -8,7 +8,7 @@ using L = Andy.Tui.Layout;
 namespace Andy.Tui.Widgets
 {
     // Minimal markdown-ish: #, ##, ### headings; *italic*, **bold**, `code`; lists: - item
-    public sealed class MarkdownRenderer
+    public sealed class MarkdownRenderer : WidgetBase
     {
         private string _md = string.Empty;
         private DL.Rgb24 _bg = new DL.Rgb24(0,0,0);
@@ -41,7 +41,7 @@ namespace Andy.Tui.Widgets
             public Span(string text, DL.CellAttrFlags attrs, bool code) { Text = text; Attrs = attrs; Code = code; }
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

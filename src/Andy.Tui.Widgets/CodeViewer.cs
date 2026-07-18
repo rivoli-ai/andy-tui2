@@ -7,7 +7,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class CodeViewer : IThemeable, IStyleable
+    public sealed class CodeViewer : WidgetBase, IThemeable, IStyleable
     {
         private readonly List<string> _lines = new();
         private int _scroll;
@@ -58,7 +58,7 @@ namespace Andy.Tui.Widgets
         public void Page(int delta, int pageSize) { ScrollLines(delta * Math.Max(1, pageSize - 1)); }
         public int GetScroll() => _scroll;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

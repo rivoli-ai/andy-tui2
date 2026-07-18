@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class RealTimeLogView : IThemeable, IStyleable
+public sealed class RealTimeLogView : WidgetBase, IThemeable, IStyleable
 {
     private readonly List<string> _lines = new();
     private int _firstVisibleLine;
@@ -54,7 +54,7 @@ public sealed class RealTimeLogView : IThemeable, IStyleable
         _followTail = false;
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

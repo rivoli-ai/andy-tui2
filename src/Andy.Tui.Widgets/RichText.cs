@@ -8,7 +8,7 @@ using L = Andy.Tui.Layout;
 namespace Andy.Tui.Widgets
 {
     // Very small markup: [b] [/b], [i] [/i], [u] [/u], [color=#RRGGBB][/color]
-    public sealed class RichText
+    public sealed class RichText : WidgetBase
     {
         private string _text = string.Empty;
         private DL.Rgb24 _bg = new DL.Rgb24(0,0,0);
@@ -19,7 +19,7 @@ namespace Andy.Tui.Widgets
 
         private struct Style { public bool Bold; public bool Italic; public bool Underline; public DL.Rgb24? Fg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;
