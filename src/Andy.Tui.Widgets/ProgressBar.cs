@@ -30,7 +30,8 @@ public sealed class ProgressBar : WidgetBase
         }
         builder.DrawBorder(new DL.Border(x, y, w, h, "single", Border));
         var pct = (int)Math.Round(Value * 100);
-        builder.DrawText(new DL.TextRun(x + 2, y, $"{pct}%", new DL.Rgb24(230, 230, 230), null, DL.CellAttrFlags.None));
+        var fg = ResolveForeground(new DL.Rgb24(230, 230, 230));
+        builder.DrawText(new DL.TextRun(x + 2, y, $"{pct}%", fg, null, DL.CellAttrFlags.None));
         builder.Pop();
     }
 }

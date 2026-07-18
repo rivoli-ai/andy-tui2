@@ -150,9 +150,8 @@ public class WidgetContractTests
         Assert.Equal(accent, w.Style!.Value.Foreground);
         var dl = Render(w, new L.Rect(0, 0, 12, 3));
         // Widgets that route their text colour through the style hook honour the override.
-        // (ProgressBar renders a fixed-colour percentage; the adapter delegates to an
-        //  external render function that does not consult the style.)
-        if (w is Label or Button or Checkbox or Spinner)
+        // (The adapter delegates to an external render function that does not consult the style.)
+        if (w is Label or Button or Checkbox or Spinner or ProgressBar)
         {
             Assert.Contains(dl.Ops.OfType<DL.TextRun>(), t => t.Fg.Equals(accent));
         }
