@@ -89,6 +89,23 @@ public static class ViewportComputer
         OverscanPolicy overscan,
         Func<int, int>? measureByIndex,
         int recentDeltaRows = 0)
+        => ComputeLayout(collection, scrollTopRow, viewportRows, overscan, measureByIndex, heightIndex: null, recentDeltaRows);
+
+    /// <summary>
+    /// Overload that accepts a persistent <see cref="CumulativeHeightIndex"/>. For variable-height
+    /// content the index lets the first visible item be located in O(log n) via binary search over
+    /// cached prefix sums, so a deep-scrolled layout pass is O(window + log n) instead of walking
+    /// (and measuring) every item from index 0. The produced layout is identical to the non-indexed
+    /// path; only the work to reach the window differs. Pass <c>null</c> to use the linear walk.
+    /// </summary>
+    public static VirtualLayout ComputeLayout<T>(
+        IVirtualizedCollection<T> collection,
+        int scrollTopRow,
+        int viewportRows,
+        OverscanPolicy overscan,
+        Func<int, int>? measureByIndex,
+        CumulativeHeightIndex? heightIndex,
+        int recentDeltaRows = 0)
     {
         int n = collection.Count;
         if (n <= 0 || viewportRows <= 0) return VirtualLayout.Empty;
@@ -121,6 +138,22 @@ public static class ViewportComputer
             int lastIndex = Math.Min(n - 1, windowBottom - 1);
             for (int i = firstIndex; i <= lastIndex; i++)
                 slots.Add(new ItemSlot(i, i - scrollTopRow, 1));
+        }
+        else if (heightIndex is not null)
+        {
+            // Prefix-sum fast path: measure/cache heights once, then binary-search to the first
+            // item intersecting the window instead of walking from index 0 every frame. Pass the
+            // collection's stable keys so a same-count reorder (or insert/remove) rebuilds the index
+            // and the fast path never diverges from the linear walk, which re-derives order per frame.
+            heightIndex.EnsureBuilt(n, collection.GetKey, measureByIndex);
+            int start = heightIndex.FirstIntersecting(windowTop);
+            for (int i = start; i < n; i++)
+            {
+                long top = heightIndex.TopOf(i);
+                if (top >= windowBottom) break;             // past the window; nothing further intersects
+                int h = heightIndex.HeightOf(i);
+                slots.Add(new ItemSlot(i, (int)(top - scrollTopRow), h));
+            }
         }
         else
         {
