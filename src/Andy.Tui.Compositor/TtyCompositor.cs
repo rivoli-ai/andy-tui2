@@ -327,6 +327,22 @@ public sealed class TtyCompositor : ICompositor
                 i += 1;
             }
 
+            // Trust boundary: terminal control characters must never enter the cell
+            // grid. If they did, the encoder would write them verbatim to the terminal
+            // (executing cursor moves, OSC 8/52, BEL, screen clears, etc.), and clipping
+            // or scrolling could cut a multi-byte sequence before its terminator. Rewrite
+            // each control code point to a visible, inert single-cell placeholder so
+            // untrusted text (logs, Markdown, chat, filenames, network data) is displayed
+            // rather than executed. Trusted control flows through typed ops (coordinates,
+            // colors, attributes), never through Content.
+            if (TerminalText.IsControl(codePoint))
+            {
+                grapheme = TerminalText.ReplacementFor(codePoint)!;
+                // The replacement is always a single visible BMP scalar, so recompute the
+                // code point to drive the width/zero-width logic below (yields width 1).
+                codePoint = char.ConvertToUtf32(grapheme, 0);
+            }
+
             // Zero-width combiners (variation selectors, ZWJ, combining marks) attach to
             // the preceding glyph rather than consuming a column, so emoji presentation
             // sequences (e.g. "\U0001F5A5️") and ZWJ sequences render as one cell.

@@ -117,7 +117,12 @@ public sealed class AnsiEncoder : IAnsiEncoder
                 bgEmitted = true;
             }
 
-            sb.Append(run.Text);
+            // Defense in depth at the terminal boundary: run text is written verbatim to
+            // the terminal, so any control character it still carries would execute as a
+            // command. The compositor already rewrites controls to inert placeholders, but
+            // a RowRun can be constructed directly (bypassing the compositor), so sanitize
+            // here as well. Sanitize returns the same instance when there is nothing to fix.
+            sb.Append(TerminalText.Sanitize(run.Text));
         }
 
         return Encoding.UTF8.GetBytes(sb.ToString());
