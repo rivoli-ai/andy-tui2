@@ -130,17 +130,29 @@ public sealed class Composer
         var ctx = new ComposeContext(this, instance);
         VNode? rendered = component.Render(ctx);
 
-        ComposeInstance? oldChild = instance.Children.Count > 0 ? instance.Children[0] : null;
+        var children = instance.Children;
+        ComposeInstance? oldChild = children.Count > 0 ? children[0] : null;
 
         if (rendered is null)
         {
             if (oldChild is not null) UnmountInstance(oldChild);
-            instance.Children = new List<ComposeInstance>();
+            children.Clear();
             return;
         }
 
         var childInstance = ReconcileNode(oldChild, rendered);
-        instance.Children = new List<ComposeInstance> { childInstance };
+
+        // Reuse the existing one-element list rather than allocating a fresh one
+        // each render; the reconciled child always occupies index 0.
+        if (children.Count == 1)
+        {
+            children[0] = childInstance;
+        }
+        else
+        {
+            children.Clear();
+            children.Add(childInstance);
+        }
     }
 
     private void ReconcileChildren(ComposeInstance parent, IReadOnlyList<VNode> newNodes)
