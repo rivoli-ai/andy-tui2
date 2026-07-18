@@ -16,6 +16,23 @@ public abstract class VNode
     public IReadOnlyList<VNode> Children => _children;
 
     /// <summary>
+    /// Gets the stable identity key for this node, if any. Keys give a node an
+    /// identity that survives reordering among its siblings: two renders that
+    /// place a node with the same key retain the same mounted instance (and its
+    /// state and effects). A <c>null</c> key falls back to positional identity.
+    /// </summary>
+    public object? Key { get; private set; }
+
+    /// <summary>
+    /// Assigns a stable identity key and returns this node for fluent chaining.
+    /// </summary>
+    public VNode WithKey(object? key)
+    {
+        Key = key;
+        return this;
+    }
+
+    /// <summary>
     /// Adds a child node to this node, ignoring nulls, preserving insertion order.
     /// </summary>
     public void AddChild(VNode child)

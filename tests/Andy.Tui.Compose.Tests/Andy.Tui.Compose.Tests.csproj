@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Andy.Tui.Compose\Andy.Tui.Compose.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
   </ItemGroup>
 
 </Project>
