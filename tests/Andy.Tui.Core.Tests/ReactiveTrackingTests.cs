@@ -232,6 +232,48 @@ public class ReactiveTrackingTests
     }
 
     [Fact]
+    public void Effect_Disposing_Itself_During_Run_Leaves_No_Subscription()
+    {
+        var a = new Signal<int>(1);
+        Effect e = null!;
+        e = new Effect(() =>
+        {
+            // Read to (re)establish a tracked dependency on every run.
+            if (a.Value >= 2)
+            {
+                e.Dispose(); // dispose from inside the action, mid-run
+            }
+        });
+
+        // Initial run subscribed the effect to the signal.
+        Assert.Equal(1, AutoDependentCount(a));
+
+        // This change triggers a run whose action disposes the effect. Before the
+        // fix, Run() still called UpdateSubscriptions after the action had already
+        // disposed the effect, re-adding the disposed effect to the signal's
+        // auto-dependent set and leaking it for the signal's lifetime.
+        a.Value = 2;
+        Assert.Equal(0, AutoDependentCount(a));
+
+        // A further change must not resurrect or route to the disposed effect.
+        a.Value = 3;
+        Assert.Equal(0, AutoDependentCount(a));
+    }
+
+    private static int AutoDependentCount<T>(Signal<T> signal)
+    {
+        var field = typeof(Signal<T>).GetField(
+            "_autoDependents",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(field);
+        var set = field!.GetValue(signal);
+        Assert.NotNull(set);
+        var countProp = set!.GetType().GetProperty("Count");
+        Assert.NotNull(countProp);
+        return (int)countProp!.GetValue(set)!;
+    }
+
+    [Fact]
     public void Effect_Dispose_Is_Idempotent()
     {
         var a = new Signal<int>(1);

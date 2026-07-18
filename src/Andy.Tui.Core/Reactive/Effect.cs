@@ -82,6 +82,15 @@ public sealed class Effect : IDisposable, IReactiveDependent
                         _action();
                     }
 
+                    // If the action disposed this effect (directly or transitively),
+                    // Dispose already released every subscription. Re-subscribing here
+                    // would leak references to the disposed effect for the lifetime of
+                    // each source, so skip the update entirely.
+                    if (_disposed)
+                    {
+                        return;
+                    }
+
                     UpdateSubscriptions(newDeps);
                 }
                 else
