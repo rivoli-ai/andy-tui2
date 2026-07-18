@@ -187,17 +187,40 @@ public class ThemeRoutingTests
     }
 
     [Fact]
-    public void ApplyStyle_TransparentColor_PreservesExistingWidgetColor()
+    public void ApplyStyle_UnstyledResolvedNode_PreservesThemeForeground()
     {
         var button = new Button("ok");
         button.ApplyTheme(BuiltinThemes.Light);
         var expectedFg = button.Fg;
 
-        // Default resolved style carries no explicit color; a transparent resolved
-        // color must not clobber the widget's theme-seeded value.
-        var style = ResolvedStyle.Default with { Color = RgbaColor.Transparent, BackgroundColor = RgbaColor.Transparent };
-        button.ApplyStyle(style);
+        // Resolve a real node whose stylesheet sets ONLY a background-color: the
+        // resolver must yield a transparent (unset) foreground so ApplyStyle keeps the
+        // widget's theme-seeded fg instead of clobbering it with an opaque default.
+        var sheet = CssParser.Parse(".danger { background-color: rgb(10, 10, 10); }");
+        var resolved = new StyleResolver().Compute(new Node("button", classes: new[] { "danger" }), new[] { sheet });
+
+        button.ApplyStyle(resolved);
+
+        // Foreground survives (no color rule was set), background is applied.
+        Assert.Equal(expectedFg, button.Fg);
+        Assert.Equal(new DL.Rgb24(10, 10, 10), button.Bg);
+    }
+
+    [Fact]
+    public void ApplyStyle_FullyUnstyledResolvedNode_PreservesThemeForegroundAndBackground()
+    {
+        var button = new Button("ok");
+        button.ApplyTheme(BuiltinThemes.Light);
+        var expectedFg = button.Fg;
+        var expectedBg = button.Bg;
+
+        // A node matched by no rules must resolve to transparent color AND
+        // background-color, leaving the widget's theme palette fully intact.
+        var resolved = new StyleResolver().Compute(new Node("button"), Array.Empty<Stylesheet>());
+
+        button.ApplyStyle(resolved);
 
         Assert.Equal(expectedFg, button.Fg);
+        Assert.Equal(expectedBg, button.Bg);
     }
 }
