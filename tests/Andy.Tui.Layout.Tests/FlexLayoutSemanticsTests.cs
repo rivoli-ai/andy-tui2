@@ -203,6 +203,76 @@ public class FlexLayoutSemanticsTests
     }
 
     [Fact]
+    public void Row_Main_Axis_MaxWidth_Is_Clamped_Without_Grow_Or_Shrink()
+    {
+        // Two items exactly fill the row (freeSpace == 0), so neither grow nor shrink runs.
+        // The first item's MaxWidth must still clamp its main-axis (width), mirroring the column
+        // path, and the following item must start at the clamped bottom edge (no overlap).
+        var container = ResolvedStyle.Default with { ColumnGap = Length.Zero };
+        var n1 = new FixedNode(20, 4);
+        var n2 = new FixedNode(20, 4);
+        FlexLayout.Layout(new Size(40, 10), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default with { MaxWidth = LengthOrAuto.FromPixels(8) }),
+            (n2, ResolvedStyle.Default)
+        });
+        Assert.InRange(n1.ArrangedRect.Width, 8 - 1e-6, 8 + 1e-6);
+        // n2 begins at the clamped right edge of n1 (8), never inside it.
+        Assert.True(n2.ArrangedRect.X >= n1.ArrangedRect.Right - 1e-6);
+        Assert.Equal(8, n2.ArrangedRect.X);
+    }
+
+    [Fact]
+    public void Row_Main_Axis_MinWidth_Is_Enforced_Without_Grow_Or_Shrink()
+    {
+        // freeSpace == 0 (two 20-wide items in a 40 row): MinWidth on the first item must still
+        // expand its main-axis width to the minimum.
+        var container = ResolvedStyle.Default with { ColumnGap = Length.Zero };
+        var n1 = new FixedNode(20, 4);
+        var n2 = new FixedNode(20, 4);
+        FlexLayout.Layout(new Size(40, 10), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default with { MinWidth = LengthOrAuto.FromPixels(28) }),
+            (n2, ResolvedStyle.Default)
+        });
+        Assert.InRange(n1.ArrangedRect.Width, 28 - 1e-6, 28 + 1e-6);
+        Assert.Equal(28, n2.ArrangedRect.X);
+    }
+
+    [Fact]
+    public void Percentage_Vertical_Margin_Resolves_Against_Width()
+    {
+        // CSS parity: a percentage top margin resolves against the containing block's WIDTH,
+        // not its height. Container content box is 100 wide x 40 tall, so 50% top margin => 50.
+        var container = ResolvedStyle.Default with { ColumnGap = Length.Zero };
+        var n1 = new FixedNode(5, 3);
+        FlexLayout.Layout(new Size(100, 40), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default with { Margin = new Thickness(Length.Zero, Length.FromPercent(50), Length.Zero, Length.Zero) })
+        });
+        // itemY = flex-start (0) + top margin (50% of width 100 = 50).
+        Assert.InRange(n1.ArrangedRect.Y, 50 - 1e-6, 50 + 1e-6);
+    }
+
+    [Fact]
+    public void Percentage_Vertical_Padding_Resolves_Against_Width()
+    {
+        // CSS parity: percentage top padding resolves against WIDTH. Container 100 wide,
+        // 50% top padding => origin Y shifts by 50 (not 50% of the 40 height = 20).
+        var container = ResolvedStyle.Default with
+        {
+            Padding = new Thickness(Length.Zero, Length.FromPercent(50), Length.Zero, Length.Zero),
+            ColumnGap = Length.Zero
+        };
+        var n1 = new FixedNode(5, 3);
+        FlexLayout.Layout(new Size(100, 40), container, new List<(ILayoutNode, ResolvedStyle)>
+        {
+            (n1, ResolvedStyle.Default)
+        });
+        Assert.InRange(n1.ArrangedRect.Y, 50 - 1e-6, 50 + 1e-6);
+    }
+
+    [Fact]
     public void Row_Cross_Margin_Applied_In_Center_Alignment()
     {
         var container = ResolvedStyle.Default with { AlignItems = AlignItems.Center, ColumnGap = Length.Zero };

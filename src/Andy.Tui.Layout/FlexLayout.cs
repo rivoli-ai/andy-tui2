@@ -15,10 +15,12 @@ public static class FlexLayout
     public static void Layout(in Size containerSize, ResolvedStyle containerStyle, IReadOnlyList<(ILayoutNode Node, ResolvedStyle Style)> children)
     {
         // --- Container padding -> content box ---
+        // CSS resolves ALL percentage paddings against the containing block's inline (width) axis,
+        // including the vertical (top/bottom) paddings.
         double padL = containerStyle.Padding.Left.Resolve(containerSize.Width);
-        double padT = containerStyle.Padding.Top.Resolve(containerSize.Height);
+        double padT = containerStyle.Padding.Top.Resolve(containerSize.Width);
         double padR = containerStyle.Padding.Right.Resolve(containerSize.Width);
-        double padB = containerStyle.Padding.Bottom.Resolve(containerSize.Height);
+        double padB = containerStyle.Padding.Bottom.Resolve(containerSize.Width);
         double originX = padL;
         double originY = padT;
         double contentW = Math.Max(0, containerSize.Width - padL - padR);
@@ -68,11 +70,12 @@ public static class FlexLayout
             measured[mi] = (it.Node, it.Style, new Size(w, h));
         }
 
-        // Per-item resolved margins (horizontal against content width, vertical against content height).
+        // CSS resolves ALL percentage margins against the containing block's inline (width) axis,
+        // so vertical (top/bottom) margins also resolve against the content width.
         double MarginLeft(int i) => measured[i].style.Margin.Left.Resolve(contentW);
         double MarginRight(int i) => measured[i].style.Margin.Right.Resolve(contentW);
-        double MarginTop(int i) => measured[i].style.Margin.Top.Resolve(contentH);
-        double MarginBottom(int i) => measured[i].style.Margin.Bottom.Resolve(contentH);
+        double MarginTop(int i) => measured[i].style.Margin.Top.Resolve(contentW);
+        double MarginBottom(int i) => measured[i].style.Margin.Bottom.Resolve(contentW);
 
         // Outer extents including margins (used for line breaking and cross-size measurement).
         double OuterMain(int i) => isRowDirection
@@ -235,6 +238,9 @@ public static class FlexLayout
                             break;
                     }
                     h = ClampCross(h, st.MinHeight, st.MaxHeight, contentH);
+                    // Clamp the main-axis (width) to Min/MaxWidth even when no grow/shrink ran,
+                    // mirroring the column path which clamps its main-axis size below.
+                    w = ClampCross(w, st.MinWidth, st.MaxWidth, contentW);
                     itemY = Math.Max(0, itemY);
 
                     double itemX = x + mStart[k];
