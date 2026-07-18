@@ -46,6 +46,58 @@ public class WidgetCatalogAccuracyTests
     };
 
     private static readonly Assembly WidgetsAssembly = typeof(Andy.Tui.Widgets.Button).Assembly;
+    private static readonly Assembly CliWidgetsAssembly = typeof(Andy.Tui.CliWidgets.Toast).Assembly;
+
+    [Fact]
+    public void Every_documented_cli_widget_maps_to_a_public_type()
+    {
+        // Reflect over the CLI widgets assembly so the "CLI widgets" catalog
+        // section is guarded too (previously it was unchecked, which is how the
+        // fabricated "ToastStatus" entry slipped past the drift guard).
+        var publicTypeNames = CliWidgetsAssembly.GetExportedTypes()
+            .Select(NormalizeTypeName)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var documentedCliWidgets = ExtractCliCatalogEntries();
+
+        // Sanity: the section really was parsed and yielded entries.
+        Assert.True(documentedCliWidgets.Count > 0,
+            "Could not extract any CLI widget entries from the 'CLI widgets' section of docs/WIDGETS.md.");
+
+        var missing = documentedCliWidgets.Where(name => !publicTypeNames.Contains(name)).ToList();
+
+        Assert.True(missing.Count == 0,
+            "docs/WIDGETS.md lists CLI widgets that are not public types in Andy.Tui.CliWidgets: " +
+            string.Join(", ", missing));
+    }
+
+    // Parse the bold entries (e.g. "**Toast**") from the "## CLI widgets" section
+    // of docs/WIDGETS.md, up to the next "## " heading. Names inside backticks or
+    // file references are not bold, so they are naturally excluded.
+    private static IReadOnlyList<string> ExtractCliCatalogEntries()
+    {
+        var path = FindRepoFile(Path.Combine("docs", "WIDGETS.md"));
+        var text = File.ReadAllText(path);
+
+        const string cliHeader = "## CLI widgets";
+        var start = text.IndexOf(cliHeader, StringComparison.Ordinal);
+        Assert.True(start >= 0, "docs/WIDGETS.md must contain a '## CLI widgets' section.");
+
+        var afterHeader = start + cliHeader.Length;
+        var nextHeader = text.IndexOf("\n## ", afterHeader, StringComparison.Ordinal);
+        var section = nextHeader >= 0
+            ? text.Substring(afterHeader, nextHeader - afterHeader)
+            : text.Substring(afterHeader);
+
+        var names = new List<string>();
+        foreach (System.Text.RegularExpressions.Match m in
+                 System.Text.RegularExpressions.Regex.Matches(section, @"\*\*([A-Za-z][A-Za-z0-9]*)\*\*"))
+        {
+            names.Add(m.Groups[1].Value);
+        }
+
+        return names;
+    }
 
     [Fact]
     public void Every_documented_widget_maps_to_a_public_type()
