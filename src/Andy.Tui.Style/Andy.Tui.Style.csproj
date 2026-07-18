@@ -11,4 +11,9 @@
     <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Exposes the test-only collision constructor for StyleCache identity tests. -->
+    <InternalsVisibleTo Include="Andy.Tui.Style.Tests" />
+  </ItemGroup>
+
 </Project>
