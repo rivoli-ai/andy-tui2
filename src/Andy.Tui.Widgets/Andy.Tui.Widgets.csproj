@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
+    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" />
     <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
     <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
     <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
