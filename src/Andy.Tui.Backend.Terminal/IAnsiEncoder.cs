@@ -147,7 +147,7 @@ public sealed class AnsiEncoder : IAnsiEncoder
             // command. The compositor already rewrites controls to inert placeholders, but
             // a RowRun can be constructed directly (bypassing the compositor), so sanitize
             // here as well. Sanitize returns the same instance when there is nothing to fix.
-            var safeText = TerminalText.Sanitize(run.Text);
+            var safeText = Andy.Tui.Text.TerminalText.Sanitize(run.Text);
 
             // OSC 8 hyperlink: emit only when the terminal advertises support and the
             // run actually carries a link. The open/close pair brackets exactly this

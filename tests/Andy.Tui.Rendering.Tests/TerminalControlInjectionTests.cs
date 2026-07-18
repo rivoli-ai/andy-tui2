@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Andy.Tui.Backend.Terminal;
 using Andy.Tui.Compositor;
 using Andy.Tui.DisplayList;
+using Andy.Tui.Text;
 
 namespace Andy.Tui.Rendering.Tests;
 

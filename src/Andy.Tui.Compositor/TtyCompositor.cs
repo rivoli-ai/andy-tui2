@@ -353,7 +353,7 @@ public sealed class TtyCompositor : ICompositor
         // every control code point to a visible, inert single-cell placeholder BEFORE
         // segmentation so untrusted text is displayed rather than executed. Trusted
         // control flows through typed ops (coordinates, colors, attributes), never Content.
-        string content = Andy.Tui.DisplayList.TerminalText.Sanitize(t.Content);
+        string content = Andy.Tui.Text.TerminalText.Sanitize(t.Content);
 
         // Iterate whole grapheme clusters via the shared text service so a flag,
         // skin-tone, ZWJ family, keycap, variation-selector, or combining-mark

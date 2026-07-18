@@ -93,4 +93,65 @@ public class TerminalTextTests
         Assert.True(TerminalText.IsAmbiguous(0x25A0));   // black square
         Assert.Equal(1, TerminalText.ScalarCellWidth(0x25A0));
     }
+
+    // ---------------------------------------------------------------------
+    // Issue #75: the control-character sanitize trust boundary now lives on the
+    // single Andy.Tui.Text.TerminalText type alongside the width/grapheme logic.
+    // There is no longer a second TerminalText, so these APIs resolve
+    // unambiguously here. Behavior must match the pre-consolidation contract.
+    // ---------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(0x00, true)]   // NUL (C0)
+    [InlineData(0x1B, true)]   // ESC (C0)
+    [InlineData(0x07, true)]   // BEL (C0)
+    [InlineData(0x0A, true)]   // LF (C0)
+    [InlineData(0x7F, true)]   // DEL
+    [InlineData(0x80, true)]   // C1
+    [InlineData(0x9F, true)]   // C1
+    [InlineData('A', false)]
+    [InlineData(0xA0, false)]  // just past C1
+    [InlineData(0x1F600, false)] // emoji
+    public void IsControl_Flags_Only_Terminal_Control_Characters(int codePoint, bool expected)
+    {
+        Assert.Equal(expected, TerminalText.IsControl(codePoint));
+    }
+
+    [Theory]
+    [InlineData(0x1B, "␛")] // ESC -> Control Pictures block
+    [InlineData(0x00, "␀")] // NUL -> Control Pictures block
+    [InlineData(0x7F, "␡")] // DEL
+    [InlineData(0x85, "�")] // C1 -> replacement character
+    public void ReplacementFor_Maps_Controls_To_Visible_Inert_Placeholders(int codePoint, string expected)
+    {
+        Assert.Equal(expected, TerminalText.ReplacementFor(codePoint));
+    }
+
+    [Fact]
+    public void ReplacementFor_Returns_Null_For_NonControl()
+    {
+        Assert.Null(TerminalText.ReplacementFor('A'));
+        Assert.Null(TerminalText.ReplacementFor(0x1F600));
+    }
+
+    [Fact]
+    public void Sanitize_Returns_Same_Instance_When_No_Control_Characters()
+    {
+        var clean = "hello 漢字 🌲 world";
+        Assert.Same(clean, TerminalText.Sanitize(clean));
+    }
+
+    [Fact]
+    public void Sanitize_Rewrites_Control_Characters_To_Placeholders()
+    {
+        // An adversarial CSI clear-screen sequence must not survive as control bytes.
+        var hostile = "[2Jgotcha";
+        var safe = TerminalText.Sanitize(hostile);
+
+        foreach (var ch in safe)
+        {
+            Assert.False(TerminalText.IsControl(ch));
+        }
+        Assert.Equal("␛[2Jgotcha␇", safe);
+    }
 }

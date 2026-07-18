@@ -13,7 +13,7 @@ namespace Andy.Tui.DisplayList;
 /// executed. Trusted terminal control is expressed through the typed fields
 /// (coordinates, <paramref name="Fg"/>/<paramref name="Bg"/>/<paramref name="Attrs"/>),
 /// not by embedding escape sequences in <paramref name="Content"/>. See
-/// <see cref="TerminalText"/> for the trust boundary contract.
+/// <c>Andy.Tui.Text.TerminalText</c> for the trust boundary contract.
 /// </para>
 /// </summary>
 /// <remarks>
