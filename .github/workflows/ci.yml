@@ -1,5 +1,12 @@
 name: ci
 
+# Pull-request / push validation.
+#
+# This workflow and build-and-release.yml deliberately share ONE build+test
+# definition: scripts/ci-graph-test.sh. This job validates the complete project
+# graph from a clean checkout in both Debug and Release; build-and-release.yml
+# reuses the same script for the Release gate that guards publishing. See #27.
+
 on:
   push:
     branches: [ main ]
@@ -7,8 +14,12 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  graph-build-test:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [ Debug, Release ]
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -17,25 +28,10 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Validate solution membership
         run: ./scripts/validate-solution.sh
-      - name: Restore
-        run: dotnet restore
-      - name: Build
-        run: dotnet build --no-restore
       - name: Install Playwright Browsers (for parity tests)
         if: env.RUN_PARITY == 'true'
         run: |
-          dotnet build tests/Andy.Tui.Parity.Playwright/Andy.Tui.Parity.Playwright.csproj -c Debug
-          bash tests/Andy.Tui.Parity.Playwright/bin/Debug/net8.0/playwright.sh install chromium
-      - name: Test
-        run: |
-          if [ "${RUN_PARITY}" = "true" ]; then
-            dotnet test --no-build --verbosity normal
-          else
-            # Run every test project except the Playwright parity suite. A
-            # solution-level --filter that excludes all of that project's tests
-            # makes newer .NET SDKs exit non-zero ("No test matches ..."), so we
-            # skip the project outright instead of filtering it out.
-            for proj in $(find tests -name '*.csproj' ! -path '*Parity.Playwright*' | sort); do
-              dotnet test "$proj" --no-build --verbosity normal
-            done
-          fi
+          dotnet build tests/Andy.Tui.Parity.Playwright/Andy.Tui.Parity.Playwright.csproj -c ${{ matrix.configuration }}
+          bash tests/Andy.Tui.Parity.Playwright/bin/${{ matrix.configuration }}/net8.0/playwright.sh install chromium
+      - name: Build complete graph and run test projects (${{ matrix.configuration }})
+        run: scripts/ci-graph-test.sh --configuration ${{ matrix.configuration }} --require-clean
