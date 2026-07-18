@@ -14,8 +14,33 @@ public interface IAnsiEncoder
 public sealed class AnsiEncoder : IAnsiEncoder
 {
     public ReadOnlyMemory<byte> Encode(IReadOnlyList<RowRun> runs, TerminalCapabilities caps)
+        => Encode(runs, caps, verticalScroll: 0);
+
+    /// <summary>
+    /// Encodes a frame, optionally prefixed with a whole-screen vertical scroll.
+    /// A positive <paramref name="verticalScroll"/> shifts existing content down
+    /// by that many rows (SD, CSI T), exposing blank rows at the top; a negative
+    /// value shifts content up (SU, CSI S), exposing blank rows at the bottom.
+    /// The exposed rows are expected to be repainted by <paramref name="runs"/>.
+    /// </summary>
+    public ReadOnlyMemory<byte> Encode(IReadOnlyList<RowRun> runs, TerminalCapabilities caps, int verticalScroll)
     {
         var sb = new StringBuilder(1024);
+
+        // Emit the scroll operation first so the terminal shifts its existing
+        // cells before we paint the newly exposed rows. No SGR reset is needed
+        // beforehand: the exposed lines are always repainted by the runs below,
+        // and the first run emits its own baseline reset, so any attributes a
+        // previous frame left active cannot leak into the visible output.
+        if (verticalScroll > 0)
+        {
+            sb.Append($"\x1b[{verticalScroll}T");
+        }
+        else if (verticalScroll < 0)
+        {
+            sb.Append($"\x1b[{-verticalScroll}S");
+        }
+
         int currentRow = -1;
         // Color tracking must distinguish three states:
         //   - not yet emitted          (xEmitted == false)

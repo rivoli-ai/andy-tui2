@@ -52,14 +52,20 @@ public sealed class FrameScheduler
             // If viewport size changed, compare against a fresh empty grid to force full repaint
             bool sizeChangedPre = _previousGrid == null || _previousGrid.Width != viewport.W || _previousGrid.Height != viewport.H;
             var prev = sizeChangedPre ? new CellGrid(viewport.W, viewport.H) : (_previousGrid ?? new CellGrid(viewport.W, viewport.H));
-            var dirty = comp.Damage(prev, cells);
+            // Only allow the vertical-scroll optimisation when the terminal is
+            // known to support scroll operations and we are not already about to
+            // clear the whole screen (size change / forced full clear), where a
+            // scroll would be meaningless.
+            bool allowScroll = caps.ScrollRegion && !sizeChangedPre && !_forceFullClear;
+            var plan = comp.ComputeDamagePlan(prev, cells, allowScroll);
+            var dirty = plan.Dirty;
             damageMs = sw.ElapsedMilliseconds;
             sw.Restart();
             var runs = comp.RowRuns(cells, dirty);
             runsMs = sw.ElapsedMilliseconds;
             sw.Restart();
             var enc = new Andy.Tui.Backend.Terminal.AnsiEncoder();
-            var bytes = enc.Encode(runs, caps);
+            var bytes = enc.Encode(runs, caps, plan.ScrollDy);
             encMs = sw.ElapsedMilliseconds;
             bytesLen = bytes.Length;
             sw.Restart();
