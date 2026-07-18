@@ -101,6 +101,33 @@ public class MultiFrameParityTests
     }
 
     [Fact]
+    public void Oracle_Reconstructs_Multibyte_Graphemes_Verbatim()
+    {
+        // Non-ASCII content spans several UTF-8 bytes per grapheme. Replaying the encoded frame
+        // onto the oracle must reproduce the exact graphemes the compositor drew, not one
+        // U+FFFD replacement char per byte. Uses precomposed, single-width code points so the
+        // comparison stays on the oracle's UTF-8 decoding, not cell-width modelling.
+        int w = 24, h = 3;
+        var white = new Rgb24(255, 255, 255);
+        var frames = new List<Dl>
+        {
+            Frame(w, h, (0, 1, "café résumé €ñ", white)),
+        };
+
+        var (incremental, reference, trace) = Replay(w, h, frames);
+        var diff = StatefulTerminalOracle.Diff(reference, incremental);
+        Assert.True(diff.Length == 0,
+            $"Oracle corrupted multibyte text.\n{trace}\nDiff:\n{diff}\n" +
+            $"Expected:\n{StatefulTerminalOracle.Dump(reference)}\nActual:\n{StatefulTerminalOracle.Dump(incremental)}");
+
+        // Spot-check the accented graphemes survived intact (no U+FFFD, correct code points).
+        var snap = incremental;
+        var text = string.Concat(Enumerable.Range(0, 14).Select(i => snap[i, 1].Grapheme));
+        Assert.Equal("café résumé €ñ", text);
+        Assert.DoesNotContain("�", text);
+    }
+
+    [Fact]
     public void Damage_Only_Frame_Preserves_Untouched_Cells()
     {
         int w = 24, h = 4;

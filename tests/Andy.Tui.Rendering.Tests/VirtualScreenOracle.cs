@@ -137,13 +137,19 @@ public static class VirtualScreenOracle
             }
             else
             {
-                var ch = Encoding.UTF8.GetString(bytes.Slice(i, 1));
+                // Decode a whole UTF-8 sequence, not one byte at a time: a multibyte grapheme
+                // (accented letter, emoji, or the U+FFFD replacement char the sanitizer emits)
+                // must occupy a single cell. Decoding byte-by-byte would spill each continuation
+                // byte into its own U+FFFD cell and shift every following column to the right.
+                int len = Utf8SequenceLength(b);
+                if (i + len > bytes.Length) len = bytes.Length - i;
+                var ch = Encoding.UTF8.GetString(bytes.Slice(i, len));
                 if (row >= 0 && row < viewport.Height && col >= 0 && col < viewport.Width)
                 {
                     grid[col, row] = new Cell(ch, 1, currentFg, currentBg, currentAttrs);
                 }
                 col++;
-                i++;
+                i += len;
             }
         }
         return grid;
@@ -174,5 +180,16 @@ public static class VirtualScreenOracle
         for (int y = vp.Height - n; y < vp.Height; y++)
             for (int x = 0; x < vp.Width; x++)
                 grid[x, y] = default;
+    }
+
+    // Byte count of the UTF-8 sequence introduced by leading byte <paramref name="lead"/>.
+    // A stray continuation byte or invalid lead is treated as a single byte.
+    private static int Utf8SequenceLength(byte lead)
+    {
+        if (lead < 0x80) return 1;
+        if (lead >= 0xC0 && lead < 0xE0) return 2;
+        if (lead >= 0xE0 && lead < 0xF0) return 3;
+        if (lead >= 0xF0 && lead < 0xF8) return 4;
+        return 1;
     }
 }

@@ -33,9 +33,10 @@ public class PackagedConsumptionTests
         Assert.Contains("dotnet run", scriptText);
         Assert.Contains("CONSUMER_OK", scriptText);
 
-        // The consumer references the meta-package, which must ship every runtime library the
-        // pipeline needs. Guard that the package project still embeds the core assemblies so a
-        // packed-and-consumed app cannot silently lose a dependency.
+        // The consumer references the meta-package, which must pull in every runtime library the
+        // pipeline needs. Andy.Tui is a dependency-only meta-package: each core library is a real
+        // ProjectReference (which packs as a NuGet <dependency>), so guard that every core library
+        // is still referenced and a packed-and-consumed app cannot silently lose a dependency.
         var pkgProj = File.ReadAllText(Path.Combine(root, "src", "Andy.Tui", "Andy.Tui.csproj"));
         foreach (var lib in new[]
         {
@@ -43,7 +44,7 @@ public class PackagedConsumptionTests
             "Andy.Tui.Layout", "Andy.Tui.Widgets", "Andy.Tui.Input",
         })
         {
-            Assert.Contains($"{lib}.dll", pkgProj);
+            Assert.Contains($"{lib}.csproj", pkgProj);
         }
     }
 

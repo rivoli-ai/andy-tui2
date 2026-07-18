@@ -89,15 +89,32 @@ public sealed class StatefulTerminalOracle
             }
             else
             {
-                var ch = Encoding.UTF8.GetString(bytes.Slice(i, 1));
+                // Decode a whole UTF-8 sequence (not one byte at a time): a multibyte
+                // grapheme such as an accented letter or emoji occupies several bytes and
+                // must be reassembled into a single cell, otherwise each continuation byte
+                // decodes in isolation to U+FFFD and corrupts the visible text.
+                int len = Utf8SequenceLength(b);
+                if (i + len > bytes.Length) len = bytes.Length - i; // truncated tail: take what's left
+                var ch = Encoding.UTF8.GetString(bytes.Slice(i, len));
                 if (_row >= 0 && _row < _height && _col >= 0 && _col < _width)
                 {
                     _grid[_col, _row] = new Cell(ch, 1, currentFg, currentBg, currentAttrs);
                 }
                 _col++;
-                i++;
+                i += len;
             }
         }
+    }
+
+    // Number of bytes in the UTF-8 sequence introduced by leading byte <paramref name="lead"/>.
+    // A stray continuation byte (0x80-0xBF) or otherwise invalid lead is treated as a single byte.
+    private static int Utf8SequenceLength(byte lead)
+    {
+        if (lead < 0x80) return 1;
+        if (lead >= 0xC0 && lead < 0xE0) return 2;
+        if (lead >= 0xE0 && lead < 0xF0) return 3;
+        if (lead >= 0xF0 && lead < 0xF8) return 4;
+        return 1;
     }
 
     private static void ApplySgr(string param, ref Rgb24 fg, ref Rgb24 bg, ref CellAttrFlags attrs)

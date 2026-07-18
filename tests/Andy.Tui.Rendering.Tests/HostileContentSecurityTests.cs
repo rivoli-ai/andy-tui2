@@ -84,9 +84,17 @@ public class HostileContentSecurityTests
         var frame = EncodePayload(payload);
         AssertNoInjection(frame);
 
-        // The visible letters survive as inert data; the ESC bytes became replacement chars.
-        var s = Encoding.UTF8.GetString(frame);
-        Assert.Contains("EVIL", s);
+        // Decode the frame with the terminal oracle. If the injected ESC bytes were neutralized,
+        // every byte of the payload lands as inert text on the drawn row (row 1): each ESC (a C0
+        // control) became the visible Control Pictures glyph "␛" (U+241B) and the "[0m"/"[1;1H"
+        // that followed are printed literally. If the sanitizer were reverted, the raw \x1b[1;1H
+        // would execute as a real cursor-home, moving "EVIL" up to row 0 and leaving row 1 without
+        // the literal CSI text — so these assertions genuinely fail when the fix is removed.
+        var visible = VisibleRow(frame, 60, 3, 1);
+        Assert.Contains("␛", visible);            // ESC bytes replaced by the inert visible placeholder
+        Assert.Contains("[0m", visible);          // SGR-reset CSI is now inert printed text
+        Assert.Contains("[1;1H", visible);        // cursor-home CSI is now inert printed text
+        Assert.Contains("EVIL", visible);         // trailing text stayed on the same row, not home
     }
 
     [Fact]
