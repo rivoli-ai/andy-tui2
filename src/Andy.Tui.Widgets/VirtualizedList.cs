@@ -17,6 +17,7 @@ public sealed class VirtualizedList<T>
     private int _recentDeltaRows;
     private Func<int, int>? _measureByIndex;
     private readonly MeasureCache _measureCache = new();
+    private readonly CumulativeHeightIndex _heightIndex = new();
     private int _lastWidth = -1;
 
     public VirtualizedList(IVirtualizedCollection<T> items, IItemRenderer<T> renderer, OverscanPolicy? overscan = null)
@@ -44,10 +45,15 @@ public sealed class VirtualizedList<T>
     {
         _measureByIndex = measureByIndex;
         _measureCache.Clear();
+        _heightIndex.Invalidate();
     }
 
     /// <summary>Drop cached item heights so they are re-measured on the next render (e.g. after a content change).</summary>
-    public void InvalidateMeasurements() => _measureCache.Clear();
+    public void InvalidateMeasurements()
+    {
+        _measureCache.Clear();
+        _heightIndex.Invalidate();
+    }
 
     public void Render(in L.Rect viewportRect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
@@ -63,13 +69,16 @@ public sealed class VirtualizedList<T>
         {
             _lastWidth = vpW;
             _measureCache.Clear();
+            _heightIndex.Invalidate();
         }
 
         // Measure through a per-item-key cache so heights are computed once per width and reused,
         // using the collection's stable keys to survive reordering.
         Func<int, int>? measure = _measureByIndex is null ? null : MeasureCached;
 
-        var layout = ViewportComputer.ComputeLayout(_items, _scrollTopRow, vpRows, _overscan, measure, _recentDeltaRows);
+        // For variable-height content a persistent prefix-sum index locates the first visible item
+        // in O(log n) so deep scrolls stay O(window + log n) instead of re-measuring from index 0.
+        var layout = ViewportComputer.ComputeLayout(_items, _scrollTopRow, vpRows, _overscan, measure, _heightIndex, _recentDeltaRows);
         if (layout.IsEmpty) return;
 
         // Clip to the viewport so before/after-overscan and partially scrolled items perform their
