@@ -97,11 +97,13 @@ public class YogaParityTests
     }
 
     [Theory]
-    [InlineData(AlignItems.FlexStart, 0)]
-    [InlineData(AlignItems.Center, 3.5)]
-    [InlineData(AlignItems.FlexEnd, 7)]
-    public void AlignItems_Row_SingleLine(AlignItems ai, double expectedY)
+    [InlineData(AlignItems.FlexStart, 0, 0)]
+    [InlineData(AlignItems.Center, 4, 3.5)]
+    [InlineData(AlignItems.FlexEnd, 8, 7)]
+    public void AlignItems_Row_SingleLine(AlignItems ai, double expectedY1, double expectedY2)
     {
+        // Yoga/browser parity: each item is aligned individually within the line cross size,
+        // so unequal-height items get different cross positions.
         var container = ResolvedStyle.Default with { AlignItems = ai };
         var n1 = new FixedNode(5, 2);
         var n2 = new FixedNode(5, 3); // max height = 3
@@ -109,21 +111,8 @@ public class YogaParityTests
         {
             (n1, ResolvedStyle.Default), (n2, ResolvedStyle.Default)
         });
-        switch (ai)
-        {
-            case AlignItems.FlexStart:
-                Assert.Equal(0, n1.ArrangedRect.Y);
-                Assert.Equal(0, n2.ArrangedRect.Y);
-                break;
-            case AlignItems.Center:
-                Assert.InRange(n1.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-                Assert.InRange(n2.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-                break;
-            case AlignItems.FlexEnd:
-                Assert.InRange(n1.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-                Assert.InRange(n2.ArrangedRect.Y, expectedY - 1e-6, expectedY + 1e-6);
-                break;
-        }
+        Assert.InRange(n1.ArrangedRect.Y, expectedY1 - 1e-6, expectedY1 + 1e-6);
+        Assert.InRange(n2.ArrangedRect.Y, expectedY2 - 1e-6, expectedY2 + 1e-6);
     }
 
     [Fact]
