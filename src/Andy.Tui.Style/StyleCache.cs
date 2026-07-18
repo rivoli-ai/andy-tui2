@@ -68,6 +68,17 @@ public sealed class StyleCache
         get { lock (_gate) { return _cache.Count; } }
     }
 
+    // Test-only: reports whether an entry for exactly these inputs is currently cached,
+    // without inserting, computing, or touching recency. Lets eviction/invalidation tests
+    // assert *which* entry survives, which a value probe cannot (computation is deterministic,
+    // so a hit and a miss return equal styles).
+    internal bool IsCachedForTesting(Node node, IEnumerable<Stylesheet> stylesheets, EnvironmentContext env, ResolvedStyle? parent = null)
+    {
+        var sheets = stylesheets as Stylesheet[] ?? stylesheets.ToArray();
+        var key = new CacheKey(node, EnvSignature.From(env), PseudoSignature.From(node), sheets, parent);
+        lock (_gate) { return _cache.ContainsKey(key); }
+    }
+
     /// <summary>
     /// Returns the computed style for <paramref name="node"/>, using a cached result only
     /// when every style dependency (node identity, pseudo-state, stylesheet set, parent, and

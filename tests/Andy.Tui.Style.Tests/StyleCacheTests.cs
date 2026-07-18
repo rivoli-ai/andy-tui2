@@ -164,15 +164,21 @@ public class StyleCacheTests
         cache.GetComputedStyle(node, new[] { sheet }, e2); // insert e2 -> evicts e1
 
         Assert.Equal(2, cache.Count);
-        // e1 was evicted; recomputing it grows count back but stays within capacity.
-        cache.GetComputedStyle(node, new[] { sheet }, e1);
-        Assert.Equal(2, cache.Count);
+        // The least-recently-used entry (e1) must be the one evicted; the touched entry (e0)
+        // and the freshly inserted entry (e2) must both survive. These assertions fail if the
+        // policy evicts the MRU entry, a random entry, or ignores the touch.
+        Assert.False(cache.IsCachedForTesting(node, new[] { sheet }, e1), "LRU entry e1 should have been evicted.");
+        Assert.True(cache.IsCachedForTesting(node, new[] { sheet }, e0), "Recently touched entry e0 should be retained.");
+        Assert.True(cache.IsCachedForTesting(node, new[] { sheet }, e2), "Freshly inserted entry e2 should be retained.");
     }
 
     [Fact]
     public void Concurrent_Access_Is_Safe_And_Correct()
     {
-        var cache = new StyleCache(maxEntries: 4096);
+        // Capacity is deliberately far smaller than the ~100 distinct keys produced below
+        // (2 nodes x 50 env widths), so EvictIfNeeded runs repeatedly *during* the Parallel.For
+        // and concurrent eviction is genuinely exercised, not just concurrent inserts and hits.
+        var cache = new StyleCache(maxEntries: 8);
         var sheet = CssParser.Parse(".a { color: red; } .b { color: blue; }");
         var nodeA = new Node("div", classes: new[] { "a" });
         var nodeB = new Node("div", classes: new[] { "b" });
@@ -198,6 +204,8 @@ public class StyleCacheTests
         });
 
         Assert.Empty(exceptions);
+        // Concurrent eviction must still honor the bound; no torn state left the cache oversized.
+        Assert.True(cache.Count <= 8, $"Cache grew to {cache.Count} under concurrency, expected <= 8.");
     }
 
     [Fact]
@@ -214,7 +222,20 @@ public class StyleCacheTests
         var styleWide1 = cache.GetComputedStyle(node, new[] { sheet }, envWide);
         Assert.NotEqual(styleNarrow.Color, styleWide1.Color);
 
+        // Both entries are cached and depend on a media rule that flips applicability between
+        // the narrow and wide viewports, so InvalidateForEnvChange must physically drop them.
+        Assert.True(cache.IsCachedForTesting(node, new[] { sheet }, envNarrow));
+        Assert.True(cache.IsCachedForTesting(node, new[] { sheet }, envWide));
+
         cache.InvalidateForEnvChange(envNarrow, envWide);
+
+        // The media-flip removal logic — not the env-keyed lookup — is what must run here.
+        // If InvalidateForEnvChange were no-op'd, these entries would still be present and the
+        // assertions below would fail.
+        Assert.False(cache.IsCachedForTesting(node, new[] { sheet }, envNarrow));
+        Assert.False(cache.IsCachedForTesting(node, new[] { sheet }, envWide));
+
+        // Recomputation after invalidation still yields the correct wide-viewport result.
         var styleWide2 = cache.GetComputedStyle(node, new[] { sheet }, envWide);
         Assert.Equal(styleWide1.Color, styleWide2.Color);
     }
