@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class MenuPopup : IThemeable, IStyleable
+public sealed class MenuPopup : WidgetBase, IThemeable, IStyleable
 {
     private Menu _menu = new();
     private int _selectedIndex;
@@ -43,7 +43,13 @@ public sealed class MenuPopup : IThemeable, IStyleable
         return (w, h);
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override L.Size MeasureCore(L.Size available)
+    {
+        var (w, h) = Measure();
+        return new L.Size(w, h);
+    }
+
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

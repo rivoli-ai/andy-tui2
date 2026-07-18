@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Accordion
+    public sealed class Accordion : WidgetBase
     {
         public sealed class Item
         {
@@ -37,7 +37,7 @@ namespace Andy.Tui.Widgets
             if (_expanded.Contains(i)) _expanded.Remove(i); else _expanded.Add(i);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;
