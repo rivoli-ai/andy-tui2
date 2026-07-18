@@ -6,7 +6,7 @@ namespace Andy.Tui.Widgets
 {
     public enum SplitterOrientation { Vertical, Horizontal }
 
-    public sealed class Splitter
+    public sealed class Splitter : WidgetBase
     {
         private SplitterOrientation _orientation = SplitterOrientation.Vertical;
         private double _position = 0.5; // ratio 0..1
@@ -24,7 +24,7 @@ namespace Andy.Tui.Widgets
         public void SetFirstPane(Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder> render) => _firstPane = render;
         public void SetSecondPane(Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder> render) => _secondPane = render;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Timeline
+    public sealed class Timeline : WidgetBase
     {
         public readonly struct Item
         {
@@ -23,7 +23,7 @@ namespace Andy.Tui.Widgets
             _items.Clear(); if (items != null) _items.AddRange(items);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 namespace Andy.Tui.Widgets
 {
     // Simple network/graph: draws nodes and lines using ASCII approximations
-    public sealed class AsciiGraph
+    public sealed class AsciiGraph : WidgetBase
     {
         public readonly struct Node { public readonly int X,Y; public readonly string Label; public Node(int x,int y,string label){X=x;Y=y;Label=label;} }
         private readonly List<Node> _nodes = new();
@@ -15,7 +15,7 @@ namespace Andy.Tui.Widgets
         private DL.Rgb24 _bg = new DL.Rgb24(0,0,0);
         public void SetNodes(IEnumerable<Node> nodes){ _nodes.Clear(); if (nodes!=null) _nodes.AddRange(nodes); }
         public void SetEdges(IEnumerable<(int A,int B)> edges){ _edges.Clear(); if (edges!=null) _edges.AddRange(edges); }
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X,y=(int)rect.Y,w=(int)rect.Width,h=(int)rect.Height; if (w<=0||h<=0) return;
             b.PushClip(new DL.ClipPush(x,y,w,h)); b.DrawRect(new DL.Rect(x,y,w,h,_bg));
