@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class ResizeHandle
+    public sealed class ResizeHandle : WidgetBase
     {
         private bool _horizontal = true; // true: horizontal bar, false: vertical bar
         private DL.Rgb24 _fg = new DL.Rgb24(160,160,160);
@@ -12,7 +12,7 @@ namespace Andy.Tui.Widgets
 
         public void SetOrientation(bool horizontal) => _horizontal = horizontal;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

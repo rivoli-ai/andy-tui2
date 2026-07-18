@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class BulletChart
+    public sealed class BulletChart : WidgetBase
     {
         private double _value;
         private double _target;
@@ -20,7 +20,7 @@ namespace Andy.Tui.Widgets
         public void SetTarget(double t){_target=t;}
         public void SetColors(DL.Rgb24 bar, DL.Rgb24 range, DL.Rgb24 target){_bar=bar;_range=range;_targetColor=target;}
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Heatmap
+    public sealed class Heatmap : WidgetBase
     {
         private readonly List<double> _values = new();
         private int _cols = 10;
@@ -16,7 +16,7 @@ namespace Andy.Tui.Widgets
         public void SetValues(IEnumerable<double> v) { _values.Clear(); if (v!=null) _values.AddRange(v); }
         public void SetColors(DL.Rgb24 low, DL.Rgb24 high) { _low = low; _high = high; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0||_values.Count==0) return;

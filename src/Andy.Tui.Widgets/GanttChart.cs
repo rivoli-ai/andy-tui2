@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class GanttChart
+    public sealed class GanttChart : WidgetBase
     {
         public readonly struct TaskItem
         {
@@ -22,7 +22,7 @@ namespace Andy.Tui.Widgets
         public void SetHorizon(int days) { _horizon = Math.Max(1, days); }
         public void SetTasks(IEnumerable<TaskItem> tasks) { _tasks.Clear(); if (tasks!=null) _tasks.AddRange(tasks); }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

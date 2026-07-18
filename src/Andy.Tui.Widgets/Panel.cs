@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Panel : IThemeable, IStyleable
+public sealed class Panel : WidgetBase, IThemeable, IStyleable
 {
     public string? Title { get; private set; }
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Background, new DL.Rgb24(12, 12, 12));
@@ -28,7 +28,7 @@ public sealed class Panel : IThemeable, IStyleable
 
     public void SetTitle(string? title) => Title = title;
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

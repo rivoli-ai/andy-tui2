@@ -5,13 +5,13 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class MapView
+    public sealed class MapView : WidgetBase
     {
         private int _cols = 16, _rows = 8;
         private Func<int,int, DL.Rgb24> _tileColor = (cx,cy) => new DL.Rgb24(20,60,20);
         public void SetGrid(int cols, int rows){ _cols=Math.Max(1,cols); _rows=Math.Max(1,rows);}        
         public void SetTileColorProvider(Func<int,int, DL.Rgb24> provider){ _tileColor = provider ?? _tileColor; }
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

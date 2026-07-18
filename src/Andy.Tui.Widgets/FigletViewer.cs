@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class FigletViewer
+    public sealed class FigletViewer : WidgetBase
     {
         private string _text = "HELLO";
         private DL.Rgb24 _fg = new DL.Rgb24(200,200,200);
@@ -13,7 +13,7 @@ namespace Andy.Tui.Widgets
         public void SetText(string text) => _text = text ?? string.Empty;
         public void SetColors(DL.Rgb24 fg, DL.Rgb24 bg) { _fg = fg; _bg = bg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

@@ -4,7 +4,7 @@ using DL = Andy.Tui.DisplayList;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Toast
+    public sealed class Toast : WidgetBase
     {
         private string _text = string.Empty;
         private DL.Rgb24 _bg = new DL.Rgb24(30, 30, 30);
@@ -18,7 +18,8 @@ namespace Andy.Tui.Widgets
             _showUntil = DateTime.UtcNow + duration;
         }
 
-        public bool IsVisible() => DateTime.UtcNow < _showUntil;
+        /// <summary>Whether the toast's display window is still active (time-based).</summary>
+        public bool IsShowing() => DateTime.UtcNow < _showUntil;
 
         public (int Width, int Height) Measure()
         {
@@ -26,9 +27,15 @@ namespace Andy.Tui.Widgets
             return (w, 1);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
         {
-            if (!IsVisible()) return;
+            var (w, h) = Measure();
+            return new L.Size(w, h);
+        }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        {
+            if (!IsShowing()) return;
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;
             b.PushClip(new DL.ClipPush(x, y, w, h));

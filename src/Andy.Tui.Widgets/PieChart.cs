@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class PieChart
+    public sealed class PieChart : WidgetBase
     {
         private readonly List<(string Label,double Value, DL.Rgb24 Color)> _slices = new();
         public void SetSlices(IEnumerable<(string Label,double Value, DL.Rgb24 Color)> slices)
@@ -14,7 +14,7 @@ namespace Andy.Tui.Widgets
             _slices.Clear(); if (slices!=null) _slices.AddRange(slices);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             // Approximate pie with horizontal bands (not circular due to text-cell rendering); represent proportions along width.
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;

@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class FocusRing
+    public sealed class FocusRing : WidgetBase
     {
         private readonly List<(string id, L.Rect rect)> _order = new();
         private int _index;
@@ -18,6 +18,9 @@ namespace Andy.Tui.Widgets
         public int GetFocusedIndex() => _index;
         public void Next() { if (_order.Count == 0) return; _index = (_index + 1) % _order.Count; }
         public void Prev() { if (_order.Count == 0) return; _index = (_index - 1 + _order.Count) % _order.Count; }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+            => Render(baseDl, b);
 
         public void Render(DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {

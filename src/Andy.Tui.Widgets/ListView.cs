@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class ListView : IThemeable, IStyleable
+    public sealed class ListView : WidgetBase, IThemeable, IStyleable
     {
         private readonly List<string> _items = new();
         private readonly HashSet<int> _selected = new();
@@ -65,7 +65,7 @@ namespace Andy.Tui.Widgets
             if (_cursor >= _scroll + viewportH) _scroll = Math.Max(0, _cursor - viewportH + 1);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

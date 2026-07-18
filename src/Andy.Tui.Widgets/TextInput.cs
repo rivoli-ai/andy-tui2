@@ -4,12 +4,13 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class TextInput : IThemeable, IStyleable
+public sealed class TextInput : WidgetBase, IThemeable, IStyleable
 {
     public bool ShowCaret { get; private set; } = true;
     public string Text { get; private set; } = string.Empty;
     public int Cursor { get; private set; }
-    public bool Focused { get; private set; }
+
+    public override bool Focusable => true;
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
     public DL.Rgb24 Bg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.SurfaceSunken, new DL.Rgb24(20, 20, 20));
     public DL.Rgb24 Border { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Border, new DL.Rgb24(100, 100, 100));
@@ -31,10 +32,9 @@ public sealed class TextInput : IThemeable, IStyleable
 
     public void SetText(string text) { Text = text; Cursor = Math.Min(Cursor, Text.Length); }
     public void SetCursor(int pos) => Cursor = Math.Clamp(pos, 0, Text.Length);
-    public void SetFocused(bool f) => Focused = f;
     public void SetShowCaret(bool show) => ShowCaret = show;
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;
@@ -45,10 +45,10 @@ public sealed class TextInput : IThemeable, IStyleable
         builder.DrawBorder(new DL.Border(x, y, w, h, "single", Border));
         int maxChars = Math.Max(0, w - 2);
         var shown = (Text.Length <= maxChars) ? Text : Text.Substring(0, maxChars);
-        var attrs = Focused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None;
+        var attrs = IsFocused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None;
         builder.DrawText(new DL.TextRun(x + 1, y, shown, Fg, Bg, attrs));
         // caret option when focused
-        if (Focused && ShowCaret)
+        if (IsFocused && ShowCaret)
         {
             // Measure the caret column in terminal cells (not UTF-16 code units)
             // so it stays aligned with wide-glyph (2-column) rendering. Cursor is

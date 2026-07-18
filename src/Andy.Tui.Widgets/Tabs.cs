@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Tabs
+    public sealed class Tabs : WidgetBase
     {
         private readonly List<string> _tabs = new();
         private int _activeIndex;
@@ -26,7 +26,7 @@ namespace Andy.Tui.Widgets
         public void Move(int delta) => SetActive(_activeIndex + delta);
         public void SetContentRenderer(Action<int, L.Rect, DL.DisplayList, DL.DisplayListBuilder> render) => _contentRenderer = render;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

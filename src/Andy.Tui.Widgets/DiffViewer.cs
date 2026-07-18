@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class DiffViewer : IThemeable, IStyleable
+    public sealed class DiffViewer : WidgetBase, IThemeable, IStyleable
     {
         private string[] _a = Array.Empty<string>();
         private string[] _b = Array.Empty<string>();
@@ -29,7 +29,7 @@ namespace Andy.Tui.Widgets
         public void SetLeft(string text) => _a = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
         public void SetRight(string text) => _b = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X, y = (int)rect.Y, w = (int)rect.Width, h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

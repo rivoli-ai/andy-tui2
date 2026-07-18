@@ -7,7 +7,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class CommandPalette : IThemeable, IStyleable
+public sealed class CommandPalette : WidgetBase, IThemeable, IStyleable
 {
     private string[] _allCommands = Array.Empty<string>();
     private readonly List<FilterResult> _results = new();
@@ -154,7 +154,7 @@ public sealed class CommandPalette : IThemeable, IStyleable
         return (w, h, x, y);
     }
 
-    public void Render(in L.Rect viewport, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect viewport, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int vw = (int)viewport.Width; int vh = (int)viewport.Height;
         builder.PushClip(new DL.ClipPush(0, 0, vw, vh));

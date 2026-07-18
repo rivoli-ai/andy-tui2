@@ -3,7 +3,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets.Layout;
 
-public sealed class VStack
+public sealed class VStack : WidgetBase
 {
     public int Spacing { get; private set; } = 0;
     // Height of 0 means "measure the child" when it implements IWidget.
@@ -15,7 +15,7 @@ public sealed class VStack
     /// <summary>Adds a widget and derives its height from <see cref="IWidget.Measure"/>.</summary>
     public VStack Add(IWidget child) { _children.Add((child, 0)); return this; }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;
@@ -37,7 +37,7 @@ public sealed class VStack
         => child is IWidget w ? Math.Max(1, (int)w.Measure(new L.Size(width, 0)).Height) : 1;
 }
 
-public sealed class HStack
+public sealed class HStack : WidgetBase
 {
     public int Spacing { get; private set; } = 0;
     private readonly List<(IRenderable child, int Width)> _children = new();
@@ -48,7 +48,7 @@ public sealed class HStack
     /// <summary>Adds a widget and derives its width from <see cref="IWidget.Measure"/>.</summary>
     public HStack Add(IWidget child) { _children.Add((child, 0)); return this; }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

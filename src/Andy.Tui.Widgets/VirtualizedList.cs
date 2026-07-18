@@ -4,7 +4,7 @@ using Andy.Tui.Virtualization;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class VirtualizedList<T>
+public sealed class VirtualizedList<T> : WidgetBase
 {
     private readonly IVirtualizedCollection<T> _items;
     private readonly IItemRenderer<T> _renderer;
@@ -55,7 +55,7 @@ public sealed class VirtualizedList<T>
         _heightIndex.Invalidate();
     }
 
-    public void Render(in L.Rect viewportRect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect viewportRect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int vpX = (int)viewportRect.X;
         int vpY = (int)viewportRect.Y;

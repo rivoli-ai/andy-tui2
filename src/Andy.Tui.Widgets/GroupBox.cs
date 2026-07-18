@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class GroupBox
+    public sealed class GroupBox : WidgetBase
     {
         private string _title = string.Empty;
         private DL.Rgb24 _border = new DL.Rgb24(150, 150, 150);
@@ -23,7 +23,7 @@ namespace Andy.Tui.Widgets
         { _padLeft = Math.Max(0, left); _padTop = Math.Max(0, top); _padRight = Math.Max(0, right); _padBottom = Math.Max(0, bottom); }
         public void SetContent(Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder>? render) => _content = render;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

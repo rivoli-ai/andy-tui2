@@ -7,7 +7,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class VirtualizedGrid
+public sealed class VirtualizedGrid : WidgetBase
 {
     // Width of the single-cell separator drawn between adjacent visible columns.
     private const int SeparatorWidth = 1;
@@ -125,7 +125,7 @@ public sealed class VirtualizedGrid
         return visCols;
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

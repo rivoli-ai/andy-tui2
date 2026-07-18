@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class DataGrid
+    public sealed class DataGrid : WidgetBase
     {
         private string[] _columns = Array.Empty<string>();
         private int[] _columnWidths = Array.Empty<int>();
@@ -64,7 +64,7 @@ namespace Andy.Tui.Widgets
             return (Math.Max(0, rows), Math.Max(0, visCols));
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

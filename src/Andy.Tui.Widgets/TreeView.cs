@@ -11,7 +11,7 @@ public interface ITreeNode
     IEnumerable<ITreeNode> Children { get; }
 }
 
-public sealed class TreeView
+public sealed class TreeView : WidgetBase
 {
     private readonly List<ITreeNode> _roots = new();
     private readonly HashSet<string> _expanded = new();
@@ -23,7 +23,7 @@ public sealed class TreeView
     public void Collapse(string id) => _expanded.Remove(id);
     public void Select(string id) => _selectedId = id;
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
         builder.PushClip(new DL.ClipPush(x, y, w, h));

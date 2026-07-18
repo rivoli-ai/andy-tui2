@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Breadcrumbs
+    public sealed class Breadcrumbs : WidgetBase
     {
         private readonly List<string> _parts = new();
         private string _separator = "›";
@@ -16,7 +16,7 @@ namespace Andy.Tui.Widgets
         public void SetSeparator(string sep) { _separator = sep; }
         public void SetColors(DL.Rgb24 fg, DL.Rgb24 dim, DL.Rgb24 bg) { _fg = fg; _dim = dim; _bg = bg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

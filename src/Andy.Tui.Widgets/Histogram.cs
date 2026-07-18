@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Histogram
+    public sealed class Histogram : WidgetBase
     {
         private readonly List<double> _values = new();
         private int _bins = 10;
@@ -14,7 +14,7 @@ namespace Andy.Tui.Widgets
         public void SetValues(IEnumerable<double> v) { _values.Clear(); if (v!=null) _values.AddRange(v); }
         public void SetBins(int bins) { _bins = Math.Max(1, bins); }
         public void SetColor(DL.Rgb24 c) { _bar = c; }
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0||_values.Count==0) return;
