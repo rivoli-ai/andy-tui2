@@ -22,6 +22,12 @@ public static class TtyDecoder
                     yield break;
                 }
             }
+            // Shift+Tab (back-tab): CSI Z (ESC [ Z)
+            if (s == "[Z")
+            {
+                yield return new KeyEvent("Tab", "Tab", KeyModifiers.Shift);
+                yield break;
+            }
             // Very simplified: arrow keys CSI A/B/C/D
             if (s.EndsWith("A")) yield return new KeyEvent("ArrowUp", "ArrowUp", KeyModifiers.None);
             if (s.EndsWith("B")) yield return new KeyEvent("ArrowDown", "ArrowDown", KeyModifiers.None);
@@ -30,10 +36,12 @@ public static class TtyDecoder
         }
         else
         {
-            // Plain printable keys
+            // Plain printable keys, plus Tab which drives focus traversal.
             foreach (var ch in s)
             {
-                if (!char.IsControl(ch))
+                if (ch == '\t')
+                    yield return new KeyEvent("Tab", "Tab", KeyModifiers.None);
+                else if (!char.IsControl(ch))
                     yield return new KeyEvent(ch.ToString(), ch.ToString(), KeyModifiers.None);
             }
         }
