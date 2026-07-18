@@ -1,37 +1,55 @@
 namespace Andy.Tui.Style;
 
 /// <summary>
-/// Resolves styles for a given node by applying cascade: specificity > source order.
+/// Resolves styles for a given node by applying the cascade.
+/// Ordering is: specificity, then the index of the stylesheet in the supplied
+/// sequence (later sheets win), then source order within a sheet. No magic
+/// numeric offsets are used, so a later stylesheet always wins an
+/// equal-specificity tie regardless of how many rules an earlier sheet holds.
 /// </summary>
 public sealed class StyleResolver
 {
-    private sealed record DeclWinner(Specificity Specificity, int SourceOrder, object Value);
+    private sealed record DeclWinner(Specificity Specificity, int SheetIndex, int SourceOrder, object Value);
 
     public ResolvedStyle Compute(Node node, IEnumerable<Stylesheet> stylesheets, EnvironmentContext? env = null, ResolvedStyle? parent = null)
+        => Compute(node, stylesheets, env, parent, diagnostics: null);
+
+    /// <summary>
+    /// Computes the resolved style and, when <paramref name="diagnostics"/> is supplied,
+    /// records a <see cref="StyleDiagnostic"/> for every recognized property whose value
+    /// could not be interpreted.
+    /// </summary>
+    public ResolvedStyle Compute(Node node, IEnumerable<Stylesheet> stylesheets, EnvironmentContext? env, ResolvedStyle? parent, ICollection<StyleDiagnostic>? diagnostics)
     {
         var winners = new Dictionary<string, DeclWinner>(StringComparer.OrdinalIgnoreCase);
 
-        int order = 0;
+        int sheetIndex = 0;
         foreach (var sheet in stylesheets)
         {
             foreach (var rule in sheet.Rules)
             {
-                if (rule.MediaCondition is not null && env is not null && !rule.MediaCondition(env))
+                if (rule.MediaCondition is not null)
                 {
-                    continue;
+                    // A media-gated rule can only be evaluated against an environment.
+                    // When no environment is supplied the query is unknowable, so the
+                    // rule does not apply. This is the explicit, documented behavior.
+                    if (env is null || !rule.MediaCondition(env))
+                    {
+                        continue;
+                    }
                 }
                 if (!rule.Selector.Matches(node)) continue;
                 foreach (var kvp in rule.Declarations)
                 {
                     var key = kvp.Key;
-                    var candidate = new DeclWinner(rule.Selector.Specificity, rule.SourceOrder + order, kvp.Value);
+                    var candidate = new DeclWinner(rule.Selector.Specificity, sheetIndex, rule.SourceOrder, kvp.Value);
                     if (!winners.TryGetValue(key, out var existing) || Compare(candidate, existing) > 0)
                     {
                         winners[key] = candidate;
                     }
                 }
             }
-            order += 10_000; // ensure later stylesheets have higher base order
+            sheetIndex++;
         }
 
         var style = ResolvedStyle.Default;
@@ -39,36 +57,41 @@ public sealed class StyleResolver
         // Map known properties
         style = style with
         {
-            Display = GetEnum(winners, "display", style.Display),
-            FlexDirection = GetEnum(winners, "flex-direction", style.FlexDirection),
-            FlexWrap = GetEnum(winners, "flex-wrap", style.FlexWrap),
-            JustifyContent = GetEnum(winners, "justify-content", style.JustifyContent),
-            AlignItems = GetEnum(winners, "align-items", style.AlignItems),
-            AlignContent = GetEnum(winners, "align-content", style.AlignContent),
-            Order = GetInt(winners, "order", style.Order),
-            FlexGrow = GetDouble(winners, "flex-grow", style.FlexGrow),
-            FlexShrink = GetDouble(winners, "flex-shrink", style.FlexShrink),
-            FlexBasis = GetLengthOrAuto(winners, "flex-basis", style.FlexBasis),
-            Width = GetLengthOrAuto(winners, "width", style.Width),
-            Height = GetLengthOrAuto(winners, "height", style.Height),
-            RowGap = GetLength(winners, "row-gap", style.RowGap),
-            ColumnGap = GetLength(winners, "column-gap", style.ColumnGap),
-            Overflow = GetEnum(winners, "overflow", style.Overflow),
-            Color = GetColor(winners, "color", style.Color),
-            BackgroundColor = GetColor(winners, "background-color", style.BackgroundColor),
-            FontWeight = GetEnum(winners, "font-weight", style.FontWeight),
-            FontStyle = GetEnum(winners, "font-style", style.FontStyle),
-            TextDecoration = GetEnum(winners, "text-decoration", style.TextDecoration),
+            Display = GetEnum(winners, "display", style.Display, diagnostics),
+            FlexDirection = GetEnum(winners, "flex-direction", style.FlexDirection, diagnostics),
+            FlexWrap = GetEnum(winners, "flex-wrap", style.FlexWrap, diagnostics),
+            JustifyContent = GetEnum(winners, "justify-content", style.JustifyContent, diagnostics),
+            AlignItems = GetEnum(winners, "align-items", style.AlignItems, diagnostics),
+            AlignSelf = GetEnum(winners, "align-self", style.AlignSelf, diagnostics),
+            AlignContent = GetEnum(winners, "align-content", style.AlignContent, diagnostics),
+            Order = GetInt(winners, "order", style.Order, diagnostics),
+            FlexGrow = GetDouble(winners, "flex-grow", style.FlexGrow, diagnostics),
+            FlexShrink = GetDouble(winners, "flex-shrink", style.FlexShrink, diagnostics),
+            FlexBasis = GetLengthOrAuto(winners, "flex-basis", style.FlexBasis, diagnostics),
+            Width = GetLengthOrAuto(winners, "width", style.Width, diagnostics),
+            Height = GetLengthOrAuto(winners, "height", style.Height, diagnostics),
+            MinWidth = GetLengthOrAuto(winners, "min-width", style.MinWidth, diagnostics),
+            MinHeight = GetLengthOrAuto(winners, "min-height", style.MinHeight, diagnostics),
+            MaxWidth = GetLengthOrAuto(winners, "max-width", style.MaxWidth, diagnostics),
+            MaxHeight = GetLengthOrAuto(winners, "max-height", style.MaxHeight, diagnostics),
+            RowGap = GetLength(winners, "row-gap", style.RowGap, diagnostics),
+            ColumnGap = GetLength(winners, "column-gap", style.ColumnGap, diagnostics),
+            Overflow = GetEnum(winners, "overflow", style.Overflow, diagnostics),
+            Color = GetColor(winners, "color", style.Color, diagnostics),
+            BackgroundColor = GetColor(winners, "background-color", style.BackgroundColor, diagnostics),
+            FontWeight = GetEnum(winners, "font-weight", style.FontWeight, diagnostics),
+            FontStyle = GetEnum(winners, "font-style", style.FontStyle, diagnostics),
+            TextDecoration = GetEnum(winners, "text-decoration", style.TextDecoration, diagnostics),
         };
 
         // Padding/Margin shorthands and longhands
-        var padding = ResolveThickness(winners, "padding", style.Padding);
-        var margin = ResolveThickness(winners, "margin", style.Margin);
+        var padding = ResolveThickness(winners, "padding", style.Padding, diagnostics);
+        var margin = ResolveThickness(winners, "margin", style.Margin, diagnostics);
         style = style with { Padding = padding, Margin = margin };
 
         // gap shorthand handling with precedence vs longhands
         // If a shorthand is present, apply to both row-gap and column-gap unless a longhand with higher precedence overrides
-        ResolveGapPair(winners, style.RowGap, style.ColumnGap, out var resolvedRowGap, out var resolvedColumnGap);
+        ResolveGapPair(winners, style.RowGap, style.ColumnGap, out var resolvedRowGap, out var resolvedColumnGap, diagnostics);
         style = style with { RowGap = resolvedRowGap, ColumnGap = resolvedColumnGap };
 
         // Inheritance: apply from parent when not specified by winners
@@ -128,6 +151,9 @@ public sealed class StyleResolver
     {
         var s = a.Specificity.CompareTo(b.Specificity);
         if (s != 0) return s;
+        // Later stylesheet wins regardless of intra-sheet rule counts.
+        var sheet = a.SheetIndex.CompareTo(b.SheetIndex);
+        if (sheet != 0) return sheet;
         return a.SourceOrder.CompareTo(b.SourceOrder);
     }
 
@@ -201,13 +227,29 @@ public sealed class StyleResolver
         return -1;
     }
 
-    private static TEnum GetEnum<TEnum>(IDictionary<string, DeclWinner> winners, string key, TEnum fallback) where TEnum : struct
+    private static void Report(ICollection<StyleDiagnostic>? diagnostics, string property, object raw, string message)
+    {
+        if (diagnostics is null) return;
+        diagnostics.Add(new StyleDiagnostic(property, raw?.ToString() ?? string.Empty, message));
+    }
+
+    // CSS-wide keywords (inherit | initial | unset) are valid on every property.
+    // They are resolved through the dedicated keyword paths where supported and
+    // must never be diagnosed as invalid values on length/number/int properties.
+    private static bool IsCssWideKeyword(object raw)
+        => raw is string s && s.Trim() is "inherit" or "initial" or "unset";
+
+    private static TEnum GetEnum<TEnum>(IDictionary<string, DeclWinner> winners, string key, TEnum fallback, ICollection<StyleDiagnostic>? diagnostics) where TEnum : struct
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
         if (raw is TEnum t) return t;
         if (raw is string s)
         {
+            // Global CSS-wide keywords are handled elsewhere; do not diagnose them here.
+            var lowered = s.Trim();
+            if (lowered is "inherit" or "initial" or "unset") return fallback;
+
             // Custom mappings for CSS-friendly tokens
             if (typeof(TEnum) == typeof(TextDecoration))
             {
@@ -219,111 +261,143 @@ public sealed class StyleResolver
             {
                 if (int.TryParse(s, out var fwNum)) return (TEnum)(object)(fwNum >= 600 ? FontWeight.Bold : FontWeight.Normal);
             }
-            if (Enum.TryParse<TEnum>(s, ignoreCase: true, out var parsed)) return parsed;
-            // CSS enum tokens are hyphenated (flex-start, space-between, wrap-reverse);
-            // the corresponding enum members are PascalCase without separators.
-            var collapsed = s.Replace("-", string.Empty);
-            if (!string.Equals(collapsed, s, StringComparison.Ordinal) &&
-                Enum.TryParse<TEnum>(collapsed, ignoreCase: true, out var parsedCollapsed))
+            // Accept both direct and kebab-case CSS keywords. CSS enum tokens are
+            // hyphenated (flex-start, space-between, wrap-reverse); the corresponding
+            // enum members are PascalCase without separators. Require a defined member
+            // so numeric or out-of-range parses are rejected.
+            if (Enum.TryParse<TEnum>(lowered, ignoreCase: true, out var parsed) && Enum.IsDefined(typeof(TEnum), parsed))
+            {
+                return parsed;
+            }
+            var collapsed = lowered.Replace("-", string.Empty);
+            if (!string.Equals(collapsed, lowered, StringComparison.Ordinal) &&
+                Enum.TryParse<TEnum>(collapsed, ignoreCase: true, out var parsedCollapsed) &&
+                Enum.IsDefined(typeof(TEnum), parsedCollapsed))
             {
                 return parsedCollapsed;
             }
+            Report(diagnostics, key, s, $"unrecognized value for {typeof(TEnum).Name}");
+            return fallback;
         }
         if (typeof(TEnum) == typeof(FontWeight))
         {
             if (raw is int i) return (TEnum)(object)(i >= 600 ? FontWeight.Bold : FontWeight.Normal);
             if (raw is double d) return (TEnum)(object)((d >= 600) ? FontWeight.Bold : FontWeight.Normal);
         }
+        Report(diagnostics, key, raw, $"unrecognized value for {typeof(TEnum).Name}");
         return fallback;
     }
 
-    private static int GetInt(IDictionary<string, DeclWinner> winners, string key, int fallback)
+    private static int GetInt(IDictionary<string, DeclWinner> winners, string key, int fallback, ICollection<StyleDiagnostic>? diagnostics)
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
-        return raw switch { int i => i, double d => (int)d, string s when int.TryParse(s, out var i2) => i2, _ => fallback };
-    }
-
-    private static double GetDouble(IDictionary<string, DeclWinner> winners, string key, double fallback)
-    {
-        if (!winners.TryGetValue(key, out var w)) return fallback;
-        var raw = ResolveVars(w.Value, winners);
-        return raw switch { double d => d, int i => i, float f => f, string s when double.TryParse(s, out var d2) => d2, _ => fallback };
-    }
-
-    private static Length GetLength(IDictionary<string, DeclWinner> winners, string key, Length fallback)
-    {
-        if (!winners.TryGetValue(key, out var w)) return fallback;
-        var raw = ResolveVars(w.Value, winners);
-        return raw switch
+        if (IsCssWideKeyword(raw)) return fallback;
+        switch (raw)
         {
-            Length l => l,
-            int i => new Length(i),
-            double d => new Length(d),
-            string s when TryParseLengthToken(s, out var len) => len,
-            _ => fallback
-        };
-    }
-
-    private static LengthOrAuto GetLengthOrAuto(IDictionary<string, DeclWinner> winners, string key, LengthOrAuto fallback)
-    {
-        if (!winners.TryGetValue(key, out var w)) return fallback;
-        var raw = ResolveVars(w.Value, winners);
-        return raw switch
-        {
-            string s when string.Equals(s.Trim(), "auto", StringComparison.OrdinalIgnoreCase) => LengthOrAuto.Auto(),
-            string s when TryParseLengthToken(s, out var len) => new LengthOrAuto(len),
-            Length l => new LengthOrAuto(l),
-            int i => new LengthOrAuto(new Length(i)),
-            double d => new LengthOrAuto(new Length(d)),
-            _ => fallback
-        };
-    }
-
-    /// <summary>
-    /// Parse a single length token accepting unitless numbers, an explicit <c>px</c> unit,
-    /// and percentages consistently. Returns false for anything else (e.g. keywords).
-    /// </summary>
-    private static bool TryParseLengthToken(string token, out Length length)
-    {
-        length = default;
-        if (string.IsNullOrWhiteSpace(token)) return false;
-        token = token.Trim();
-        if (token.EndsWith("%", StringComparison.Ordinal))
-        {
-            var pctStr = token[..^1].Trim();
-            if (double.TryParse(pctStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pct))
-            {
-                length = Length.FromPercent(pct);
-                return true;
-            }
-            return false;
+            case int i: return i;
+            case double d: return (int)d;
+            case string s when int.TryParse(s, out var i2): return i2;
+            default:
+                Report(diagnostics, key, raw, "expected an integer");
+                return fallback;
         }
-        if (token.EndsWith("px", StringComparison.OrdinalIgnoreCase))
-        {
-            token = token[..^2].Trim();
-        }
-        if (double.TryParse(token, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var px))
-        {
-            length = new Length(px);
-            return true;
-        }
-        return false;
     }
 
-    private static RgbaColor GetColor(IDictionary<string, DeclWinner> winners, string key, RgbaColor fallback)
+    private static double GetDouble(IDictionary<string, DeclWinner> winners, string key, double fallback, ICollection<StyleDiagnostic>? diagnostics)
+    {
+        if (!winners.TryGetValue(key, out var w)) return fallback;
+        var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
+        switch (raw)
+        {
+            case double d: return d;
+            case int i: return i;
+            case float f: return f;
+            case string s when double.TryParse(s, out var d2): return d2;
+            default:
+                Report(diagnostics, key, raw, "expected a number");
+                return fallback;
+        }
+    }
+
+    private static Length GetLength(IDictionary<string, DeclWinner> winners, string key, Length fallback, ICollection<StyleDiagnostic>? diagnostics)
+    {
+        if (!winners.TryGetValue(key, out var w)) return fallback;
+        var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
+        switch (raw)
+        {
+            case Length l: return l;
+            case int i: return new Length(i);
+            case double d: return new Length(d);
+            case string s when s.EndsWith("%", StringComparison.Ordinal) && double.TryParse(s.TrimEnd('%'), out var pct): return Length.FromPercent(pct);
+            case string s when double.TryParse(TrimPx(s), out var d2): return new Length(d2);
+            default:
+                Report(diagnostics, key, raw, "expected a length");
+                return fallback;
+        }
+    }
+
+    private static LengthOrAuto GetLengthOrAuto(IDictionary<string, DeclWinner> winners, string key, LengthOrAuto fallback, ICollection<StyleDiagnostic>? diagnostics)
+    {
+        if (!winners.TryGetValue(key, out var w)) return fallback;
+        var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
+        switch (raw)
+        {
+            case string s when string.Equals(s, "auto", StringComparison.OrdinalIgnoreCase):
+                return LengthOrAuto.Auto();
+            // "none" removes the constraint, but it is only valid on max-width/max-height.
+            // On any other length property it is invalid CSS and must be diagnosed.
+            case string s when string.Equals(s, "none", StringComparison.OrdinalIgnoreCase):
+                if (string.Equals(key, "max-width", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(key, "max-height", StringComparison.OrdinalIgnoreCase))
+                {
+                    return LengthOrAuto.Auto();
+                }
+                Report(diagnostics, key, s, $"'none' is not valid for {key}; only max-width/max-height accept it");
+                return fallback;
+            case string s when s.EndsWith("%", StringComparison.Ordinal) && double.TryParse(s.TrimEnd('%'), out var pct):
+                return LengthOrAuto.FromPercent(pct);
+            case string s when double.TryParse(TrimPx(s), out var d2):
+                return LengthOrAuto.FromPixels(d2);
+            case Length l:
+                return new LengthOrAuto(l);
+            case int i:
+                return new LengthOrAuto(new Length(i));
+            case double d:
+                return new LengthOrAuto(new Length(d));
+            default:
+                Report(diagnostics, key, raw, "expected a length, percentage, auto, or none");
+                return fallback;
+        }
+    }
+
+    private static string TrimPx(string s)
+    {
+        s = s.Trim();
+        return s.EndsWith("px", StringComparison.OrdinalIgnoreCase) ? s[..^2].Trim() : s;
+    }
+
+    private static RgbaColor GetColor(IDictionary<string, DeclWinner> winners, string key, RgbaColor fallback, ICollection<StyleDiagnostic>? diagnostics)
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
         if (raw is RgbaColor c) return c;
         if (raw is string s)
         {
+            var lowered = s.Trim();
+            if (lowered is "inherit" or "initial" or "unset") return fallback;
             if (ColorParser.TryParse(s, out var parsed)) return parsed;
+            Report(diagnostics, key, s, "unrecognized color");
+            return fallback;
         }
+        Report(diagnostics, key, raw, "unrecognized color");
         return fallback;
     }
 
-    private static Thickness ResolveThickness(IDictionary<string, DeclWinner> winners, string baseKey, Thickness fallback)
+    private static Thickness ResolveThickness(IDictionary<string, DeclWinner> winners, string baseKey, Thickness fallback, ICollection<StyleDiagnostic>? diagnostics)
     {
         // Consider both shorthand and longhands; precedence: higher specificity then later source order.
         DeclWinner? shorthandWinner = null;
@@ -342,10 +416,10 @@ public sealed class StyleResolver
                 if (shorthandWinner is not null)
                 {
                     return Compare(lh, shorthandWinner) >= 0
-                        ? GetLength(winners, edgeKey, edgeFallback)
+                        ? GetLength(winners, edgeKey, edgeFallback, diagnostics)
                         : selectFromThickness(shorthandValue);
                 }
-                return GetLength(winners, edgeKey, edgeFallback);
+                return GetLength(winners, edgeKey, edgeFallback, diagnostics);
             }
             return shorthandWinner is not null ? selectFromThickness(shorthandValue) : edgeFallback;
         }
@@ -357,14 +431,14 @@ public sealed class StyleResolver
         return new Thickness(left, top, right, bottom);
     }
 
-    private static void ResolveGapPair(IDictionary<string, DeclWinner> winners, Length rowGapFallback, Length columnGapFallback, out Length rowGap, out Length columnGap)
+    private static void ResolveGapPair(IDictionary<string, DeclWinner> winners, Length rowGapFallback, Length columnGapFallback, out Length rowGap, out Length columnGap, ICollection<StyleDiagnostic>? diagnostics)
     {
         DeclWinner? shorthandWinner = null;
         Length shorthandValue = rowGapFallback; // default
         if (winners.TryGetValue("gap", out var sh))
         {
             var raw = ResolveVars(sh.Value, winners);
-            var len = raw switch { Length l => l, int i => new Length(i), double d => new Length(d), string s when TryParseLengthToken(s, out var parsedLen) => parsedLen, _ => (Length?)null };
+            var len = raw switch { Length l => l, int i => new Length(i), double d => new Length(d), string s when s.EndsWith("%", StringComparison.Ordinal) && double.TryParse(s.TrimEnd('%'), out var pct) => Length.FromPercent(pct), string s when double.TryParse(TrimPx(s), out var d2) => new Length(d2), _ => (Length?)null };
             if (len is not null)
             {
                 shorthandWinner = sh;
@@ -379,9 +453,9 @@ public sealed class StyleResolver
             {
                 if (shorthandWinner is not null)
                 {
-                    return Compare(lh, shorthandWinner) >= 0 ? GetLength(winners, key, fallback) : shorthandValue;
+                    return Compare(lh, shorthandWinner) >= 0 ? GetLength(winners, key, fallback, diagnostics) : shorthandValue;
                 }
-                return GetLength(winners, key, fallback);
+                return GetLength(winners, key, fallback, diagnostics);
             }
             return shorthandWinner is not null ? shorthandValue : fallback;
         }
