@@ -162,6 +162,11 @@ public class TerminalControlInjectionTests
         var chat = "hey \x1b[5;31mLOOK AT ME\x1b[0m please";
         var s = EncodeThroughPipeline(chat, (80, 1));
         AssertNoExecutableControls(s);
+        // The injected SGR ESC introducers were rewritten to the inert "␛" glyph, so
+        // the payload cannot recolour the terminal. Without this positive assertion the
+        // test would still pass if AppendSanitized were reverted, because the residual
+        // CSI stripper in AssertNoExecutableControls treats a raw ESC[..m as legitimate.
+        Assert.Contains("␛", s);
         Assert.Contains("LOOK AT ME", s);
     }
 
