@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class TitleBadge
+    public sealed class TitleBadge : WidgetBase
     {
         private string _title = "Title";
         private string _badge = "NEW";
@@ -18,7 +18,7 @@ namespace Andy.Tui.Widgets
         public void SetColors(DL.Rgb24 titleFg, DL.Rgb24 bg, DL.Rgb24 badgeFg, DL.Rgb24 badgeBg)
         { _titleFg = titleFg; _bg = bg; _badgeFg = badgeFg; _badgeBg = badgeBg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X, y = (int)rect.Y, w = Math.Max(0,(int)rect.Width), h = Math.Max(1,(int)rect.Height);
             if (w <= 0 || h <= 0) return;

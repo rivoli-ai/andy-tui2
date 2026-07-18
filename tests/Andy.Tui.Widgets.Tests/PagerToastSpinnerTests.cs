@@ -26,7 +26,7 @@ public class PagerToastSpinnerTests
     {
         var toast = new Andy.Tui.Widgets.Toast();
         toast.Show("Saved!", TimeSpan.FromMilliseconds(200));
-        Assert.True(toast.IsVisible());
+        Assert.True(toast.IsShowing());
         var (w, h) = toast.Measure();
         Assert.True(w >= 8);
         Assert.Equal(1, h);

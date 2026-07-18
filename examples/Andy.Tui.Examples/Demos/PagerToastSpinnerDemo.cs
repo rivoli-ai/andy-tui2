@@ -55,7 +55,7 @@ public static class PagerToastSpinnerDemo
                 spinner.Render(new L.Rect(2, 2, 1, 1), baseDl, wb);
 
                 // Toast at bottom center
-                if (toast.IsVisible())
+                if (toast.IsShowing())
                 {
                     var (tw, th) = toast.Measure();
                     int tx = Math.Max(0, viewport.Width / 2 - tw / 2);

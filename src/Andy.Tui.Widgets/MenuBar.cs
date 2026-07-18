@@ -44,7 +44,7 @@ public sealed class Menu
     }
 }
 
-public sealed class MenuBar : IThemeable, IStyleable
+public sealed class MenuBar : WidgetBase, IThemeable, IStyleable
 {
     private readonly List<(string Title, Menu Menu)> _menus = new();
     public IReadOnlyList<(string Title, Menu Menu)> Menus => _menus;
@@ -70,7 +70,7 @@ public sealed class MenuBar : IThemeable, IStyleable
     public MenuBar Add(string title, Menu menu)
     { _menus.Add((title, menu)); return this; }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
         => Render(rect, baseDl, builder, activeHeaderIndex: null);
 
     public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder, int? activeHeaderIndex)
