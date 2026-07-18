@@ -19,7 +19,7 @@ public class PerformanceBudgetTests
         return ns / iterations;
     }
 
-    [Fact(Skip = "Performance varies in CI environment - exceeding 350ns budget")]
+    [Fact(Skip = "Micro-benchmark is CI-environment sensitive (>350ns budget under shared runners); tracked by #44 / epic #18. Un-skip when run on a dedicated perf lane, or convert to a trend gate.")]
     public void Signal_Update_WithChange_Stays_Under_Budget()
     {
         // Relaxed threshold for CI jitter, target <200ns, gate at 350ns
@@ -34,7 +34,7 @@ public class PerformanceBudgetTests
         Assert.True(avgNs <= budgetNs, $"Signal update avg {avgNs:F1} ns exceeds budget {budgetNs} ns");
     }
 
-    [Fact(Skip = "Performance varies in CI environment - exceeding 800ns budget")]
+    [Fact(Skip = "Micro-benchmark is CI-environment sensitive (>800ns budget under shared runners); tracked by #44 / epic #18. Un-skip when run on a dedicated perf lane, or convert to a trend gate.")]
     public void Computed_Read_After_Invalidate_Stays_Reasonable()
     {
         // Not as strict: target < 500ns, gate at 800ns

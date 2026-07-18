@@ -21,7 +21,7 @@ public class GraphemeAndWidthTests
         Assert.Single(graphemes);
     }
 
-    [Fact(Skip = "Wide-at-edge policy pending")]
+    [Fact(Skip = "Wide-glyph-at-edge compositor policy not yet enforced; tracked by #44 / epic #18. Un-skip once the compositor/oracle clips or wraps a double-width glyph straddling the right edge.")]
     public void Double_Width_At_Edge_Policy()
     {
         var s = "漢"; // likely double-width
