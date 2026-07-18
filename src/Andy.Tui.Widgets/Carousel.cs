@@ -5,7 +5,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Carousel
+    public sealed class Carousel : WidgetBase
     {
         private readonly List<string> _items = new();
         private int _index;
@@ -19,7 +19,7 @@ namespace Andy.Tui.Widgets
         public int GetIndex() => _index;
         public void SetIndex(int i) { if (_items.Count == 0) { _index = 0; return; } _index = Math.Clamp(i, 0, _items.Count - 1); }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;
