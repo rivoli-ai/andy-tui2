@@ -1,5 +1,6 @@
 using DL = Andy.Tui.DisplayList;
 using L = Andy.Tui.Layout;
+using Andy.Tui.Text;
 
 namespace Andy.Tui.CliWidgets
 {
@@ -54,7 +55,7 @@ namespace Andy.Tui.CliWidgets
         public int GetWidth()
         {
             int totalTokens = _totalInputTokens + _totalOutputTokens;
-            return $"Total: {_totalInputTokens}→{_totalOutputTokens} ({totalTokens})".Length;
+            return TerminalText.MeasureWidth($"Total: {_totalInputTokens}→{_totalOutputTokens} ({totalTokens})");
         }
     }
 }

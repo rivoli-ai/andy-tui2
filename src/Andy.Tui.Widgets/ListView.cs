@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
+using Andy.Tui.Text;
 using DL = Andy.Tui.DisplayList;
 using ST = Andy.Tui.Style;
 using L = Andy.Tui.Layout;
@@ -80,11 +82,36 @@ namespace Andy.Tui.Widgets
                 var fg = isSel ? SelFg : ItemFg;
                 var bg = isSel ? SelBg : (DL.Rgb24?)null;
                 string text = _items[i];
-                if (text.Length > contentW) text = text.Substring(0, contentW);
+                // Truncate by terminal-cell width (not UTF-16 code units) so wide
+                // glyphs (CJK/emoji/ZWJ) never overflow or split across the content box.
+                text = TruncateToCells(text, contentW);
                 builder.DrawRect(new DL.Rect(contentX, contentY + row, contentW, 1, bg ?? new DL.Rgb24(0, 0, 0)));
                 builder.DrawText(new DL.TextRun(contentX, contentY + row, text, fg, bg, isSel ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None));
             }
             builder.Pop();
+        }
+
+        /// <summary>
+        /// Returns the longest prefix of <paramref name="text"/> (measured in whole
+        /// grapheme clusters) whose terminal-cell width does not exceed
+        /// <paramref name="maxCells"/>. Width is measured via
+        /// <see cref="TerminalText"/> so truncation agrees with the cell-accurate
+        /// rendering for wide glyphs.
+        /// </summary>
+        internal static string TruncateToCells(string text, int maxCells)
+        {
+            if (maxCells <= 0 || string.IsNullOrEmpty(text)) return string.Empty;
+            if (TerminalText.MeasureWidth(text) <= maxCells) return text;
+            var sb = new StringBuilder(text.Length);
+            int used = 0;
+            foreach (var g in TerminalText.EnumerateGraphemes(text))
+            {
+                int gw = TerminalText.GraphemeCellWidth(g);
+                if (used + gw > maxCells) break;
+                sb.Append(g);
+                used += gw;
+            }
+            return sb.ToString();
         }
     }
 }
