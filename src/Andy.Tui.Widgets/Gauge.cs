@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Gauge
+    public sealed class Gauge : WidgetBase
     {
         private double _value;
         private double _min=0,_max=100;
@@ -14,7 +14,7 @@ namespace Andy.Tui.Widgets
         public void SetRange(double min,double max){_min=min;_max=max;}
         public void SetValue(double v){_value=v;}
         public void SetColors(DL.Rgb24 track, DL.Rgb24 fill){_track=track;_fill=fill;}
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

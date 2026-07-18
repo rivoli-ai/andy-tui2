@@ -6,7 +6,7 @@ namespace Andy.Tui.Widgets
 {
     public enum DockRegion { Left, Right, Top, Bottom }
 
-    public sealed class DockLayout
+    public sealed class DockLayout : WidgetBase
     {
         private (DockRegion region, int size, Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder> render)[] _areas
             = Array.Empty<(DockRegion,int,Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder>)>();
@@ -18,7 +18,7 @@ namespace Andy.Tui.Widgets
             => _areas = areas ?? Array.Empty<(DockRegion,int,Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder>)>();
         public void SetCenter(Action<L.Rect, DL.DisplayList, DL.DisplayListBuilder> render) => _center = render;
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;
