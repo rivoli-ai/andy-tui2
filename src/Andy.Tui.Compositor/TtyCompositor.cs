@@ -295,7 +295,14 @@ public sealed class TtyCompositor : ICompositor
     {
         int y = t.Y;
         if (y < clip.y || y >= clip.y + clip.h) return;
-        int clipRight = clip.x + clip.w;
+        // The clip rectangle may extend beyond the grid (an off-screen or degenerate
+        // clip whose x/width were never clamped to the grid). Clamp the horizontal
+        // clip bounds to the grid so no draw branch - including the wide-glyph edge
+        // placeholder at clipRight-1 - can index outside the backing cell array.
+        if (y < 0 || y >= grid.Height) return;
+        int clipLeft = Math.Max(0, clip.x);
+        int clipRight = Math.Min(grid.Width, clip.x + clip.w);
+        if (clipRight <= clipLeft) return;
 
         string s = t.Content;
         int x = t.X;
@@ -325,7 +332,7 @@ public sealed class TtyCompositor : ICompositor
             // sequences (e.g. "\U0001F5A5️") and ZWJ sequences render as one cell.
             if (IsZeroWidth(codePoint))
             {
-                if (lastLeadX >= clip.x && lastLeadX < clipRight)
+                if (lastLeadX >= clipLeft && lastLeadX < clipRight)
                 {
                     ref var lead = ref grid.GetRef(lastLeadX, y);
                     lead = lead with { Grapheme = (lead.Grapheme ?? "") + grapheme };
@@ -336,7 +343,7 @@ public sealed class TtyCompositor : ICompositor
             int width = IsWideCodePoint(codePoint) ? 2 : 1;
 
             // Glyph wholly left of the clip: advance without drawing.
-            if (x + width <= clip.x) { x += width; continue; }
+            if (x + width <= clipLeft) { x += width; continue; }
             if (x >= clipRight) break;
 
             // Edge policy: a double-width glyph that would overflow the right edge is
@@ -351,7 +358,7 @@ public sealed class TtyCompositor : ICompositor
             }
 
             // A wide glyph straddling the left clip edge is dropped (no half glyph).
-            if (x >= clip.x)
+            if (x >= clipLeft)
             {
                 var bg = t.Bg ?? grid[x, y].Bg;
                 grid[x, y] = new Cell(grapheme, (byte)width, t.Fg, bg, t.Attrs);

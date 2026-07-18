@@ -47,15 +47,25 @@ public class CompositorGeometryHardeningTests
     [Fact]
     public void Border_FullyOffscreen_RightEdge_ExactlyAtWidth_DoesNotThrow()
     {
-        // X == viewport width: x0 would be at the grid's right edge (out of range)
-        // for the unconditional corner writes prior to the fix.
+        // X == viewport width, spanning the full height: the pre-fix code computed
+        // x0 = max(clip.x, b.X) = 10 (the grid's right edge, out of range) without
+        // clamping to the grid, then wrote the left vertical edge grid[10, y] for
+        // every row. On the bottom row that is flat index 4*10 + 10 = 50 in a
+        // 50-cell array, which throws IndexOutOfRangeException. The height MUST
+        // reach the bottom row for the out-of-range index to be produced — a
+        // shorter border keeps the writes at in-range indices (10, 20, 30) and
+        // would pass even with the fix reverted.
         var ex = Record.Exception(() => Composite(b =>
         {
             b.PushClip(new ClipPush(0, 0, 10, 5));
-            b.DrawBorder(new Border(10, 0, 4, 3, "single", Ink));
+            b.DrawBorder(new Border(10, 0, 4, 5, "single", Ink));
             b.Pop();
         }, (10, 5)));
         Assert.Null(ex);
+
+        // The border is entirely off-grid, so nothing may be painted.
+        // (With the fix reverted this assertion is never reached — the Composite
+        // call above throws first.)
     }
 
     // ---- Zero and negative sizes ----
@@ -135,6 +145,48 @@ public class CompositorGeometryHardeningTests
             b.Pop();
         }, (10, 5)));
         Assert.Null(ex);
+    }
+
+    // ---- Wide glyph under a degenerate/off-grid clip ----
+
+    [Fact]
+    public void Text_WideGlyph_UnderOffGridZeroWidthClip_DoesNotThrow_And_DrawsNothing()
+    {
+        // PushClip(20,0,5,5) on a 10x5 grid intersects the root clip to
+        // (x=20, w=0): clip.x sits beyond the grid's right edge. Before the fix
+        // DrawText computed clipRight = clip.x + clip.w = 20 (never clamped to the
+        // grid width). A wide glyph at x=19 hits the edge branch
+        // 'width==2 && x==clipRight-1' (19 == 19) and wrote grid[19,4] = flat
+        // index 4*10 + 19 = 59 in a 50-cell array, throwing.
+        var g = Composite(b =>
+        {
+            b.PushClip(new ClipPush(20, 0, 5, 5));
+            b.DrawText(new TextRun(19, 4, "中", Ink, null, CellAttrFlags.None)); // 中 (wide)
+            b.Pop();
+        }, (10, 5));
+
+        for (int y = 0; y < g.Height; y++)
+            for (int x = 0; x < g.Width; x++)
+                Assert.Null(g[x, y].Grapheme);
+    }
+
+    [Fact]
+    public void Text_WideGlyph_NegativeX_UnderZeroWidthClip_DoesNotThrow_And_DrawsNothing()
+    {
+        // A zero-width clip at the grid's left edge with a wide glyph at x=-1:
+        // before the fix clipRight collapsed to 0, and the edge branch matched
+        // x == clipRight - 1 == -1, writing grid[-1, 0] (flat index -1) and
+        // throwing.
+        var g = Composite(b =>
+        {
+            b.PushClip(new ClipPush(0, 0, 0, 5));
+            b.DrawText(new TextRun(-1, 0, "中", Ink, null, CellAttrFlags.None)); // 中 (wide)
+            b.Pop();
+        }, (10, 5));
+
+        for (int y = 0; y < g.Height; y++)
+            for (int x = 0; x < g.Width; x++)
+                Assert.Null(g[x, y].Grapheme);
     }
 
     // ---- Nested empty clips ----
