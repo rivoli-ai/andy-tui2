@@ -140,19 +140,16 @@ public sealed class TtyCompositor : ICompositor
 
         int bestCandidate = 0;
         int bestMatches = -1;
-        int bestRowsCompared = 0;
 
         // Try small range of plausible scroll deltas
         for (int candidate = -Math.Min(5, h - 1); candidate <= Math.Min(5, h - 1); candidate++)
         {
             if (candidate == 0) continue;
             int matches = 0;
-            int rowsCompared = 0;
             for (int y = 0; y < h; y++)
             {
                 int py = y - candidate;
                 if (py < 0 || py >= h) continue;
-                rowsCompared++;
                 bool rowEqual = true;
                 for (int x = 0; x < w; x++)
                 {
@@ -168,19 +165,19 @@ public sealed class TtyCompositor : ICompositor
             {
                 bestMatches = matches;
                 bestCandidate = candidate;
-                bestRowsCompared = rowsCompared;
             }
         }
 
         if (bestMatches <= 0) return false;
-        // Expected comparable rows for a given dy is h - |dy|
+        // Expected comparable rows for a given dy is h - |dy|. By construction the
+        // detection loop only compares in-bounds rows, so the count of matched rows
+        // can never exceed expectedComparable; requiring equality demands an EXACT
+        // match across every comparable row. The scroll optimisation shifts these
+        // rows on-screen without repainting them, so a single mismatched row would
+        // leave stale content that diverges from the next frame. Anything less than
+        // a perfect shift falls back to a full per-row diff instead.
         int expectedComparable = h - Math.Abs(bestCandidate);
-        // Require an EXACT match across every comparable row. The scroll
-        // optimisation shifts these rows on-screen without repainting them, so a
-        // single mismatched row would leave stale content that diverges from the
-        // next frame. Anything less than a perfect shift falls back to a full
-        // per-row diff instead.
-        if (expectedComparable > 0 && bestRowsCompared == expectedComparable && bestMatches == expectedComparable)
+        if (expectedComparable > 0 && bestMatches == expectedComparable)
         {
             dy = bestCandidate;
             return true;

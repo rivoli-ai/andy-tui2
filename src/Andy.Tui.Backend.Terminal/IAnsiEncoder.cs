@@ -28,18 +28,16 @@ public sealed class AnsiEncoder : IAnsiEncoder
         var sb = new StringBuilder(1024);
 
         // Emit the scroll operation first so the terminal shifts its existing
-        // cells before we paint the newly exposed rows. Reset SGR beforehand so
-        // the terminal fills the exposed lines with its default background rather
-        // than whatever attributes a previous frame left active (those lines are
-        // repainted by the runs below regardless).
+        // cells before we paint the newly exposed rows. No SGR reset is needed
+        // beforehand: the exposed lines are always repainted by the runs below,
+        // and the first run emits its own baseline reset, so any attributes a
+        // previous frame left active cannot leak into the visible output.
         if (verticalScroll > 0)
         {
-            sb.Append("\x1b[0m");
             sb.Append($"\x1b[{verticalScroll}T");
         }
         else if (verticalScroll < 0)
         {
-            sb.Append("\x1b[0m");
             sb.Append($"\x1b[{-verticalScroll}S");
         }
 
