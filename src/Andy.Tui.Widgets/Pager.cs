@@ -4,7 +4,7 @@ using DL = Andy.Tui.DisplayList;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class Pager
+    public sealed class Pager : WidgetBase
     {
         private int _totalItems = 0;
         private int _pageSize = 10;
@@ -31,7 +31,13 @@ namespace Andy.Tui.Widgets
             return (width, 1);
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
+        {
+            var (w, h) = Measure();
+            return new L.Size(w, h);
+        }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;

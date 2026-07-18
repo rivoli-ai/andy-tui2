@@ -4,7 +4,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class ScrollView : IThemeable, IStyleable
+public sealed class ScrollView : WidgetBase, IThemeable, IStyleable
 {
     public int ScrollY { get; private set; }
     public string Content { get; private set; } = string.Empty;
@@ -41,7 +41,7 @@ public sealed class ScrollView : IThemeable, IStyleable
         AdjustScroll(-wheelDelta, (int)rect.Height);
     }
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

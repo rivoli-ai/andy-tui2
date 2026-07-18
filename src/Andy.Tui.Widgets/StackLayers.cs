@@ -5,7 +5,7 @@ using DL = Andy.Tui.DisplayList;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class StackLayers
+    public sealed class StackLayers : WidgetBase
     {
         private readonly List<Action<DL.DisplayList, DL.DisplayListBuilder>> _layers = new();
         private DL.Rgb24 _bg = new DL.Rgb24(0, 0, 0);
@@ -14,7 +14,13 @@ namespace Andy.Tui.Widgets
         public void AddLayer(Action<DL.DisplayList, DL.DisplayListBuilder> draw) { if (draw != null) _layers.Add(draw); }
         public (int Width, int Height) Measure() => (0, 0);
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override L.Size MeasureCore(L.Size available)
+        {
+            var (w, h) = Measure();
+            return new L.Size(w, h);
+        }
+
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             // Base background fill
             b.DrawRect(new DL.Rect((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height, _bg));

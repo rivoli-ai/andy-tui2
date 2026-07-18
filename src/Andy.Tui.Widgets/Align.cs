@@ -7,7 +7,7 @@ namespace Andy.Tui.Widgets
     public enum HorizontalAlign { Left, Center, Right, Stretch }
     public enum VerticalAlign { Top, Middle, Bottom, Stretch }
 
-    public sealed class Align
+    public sealed class Align : WidgetBase
     {
         private HorizontalAlign _h = HorizontalAlign.Left;
         private VerticalAlign _v = VerticalAlign.Top;
@@ -44,7 +44,7 @@ namespace Andy.Tui.Widgets
             return (cx, cy, Math.Max(0,cw), Math.Max(0,ch));
         }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x = (int)rect.X; int y = (int)rect.Y; int w = (int)rect.Width; int h = (int)rect.Height;
             if (w <= 0 || h <= 0) return;
