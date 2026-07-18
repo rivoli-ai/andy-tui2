@@ -233,6 +233,12 @@ public sealed class StyleResolver
         diagnostics.Add(new StyleDiagnostic(property, raw?.ToString() ?? string.Empty, message));
     }
 
+    // CSS-wide keywords (inherit | initial | unset) are valid on every property.
+    // They are resolved through the dedicated keyword paths where supported and
+    // must never be diagnosed as invalid values on length/number/int properties.
+    private static bool IsCssWideKeyword(object raw)
+        => raw is string s && s.Trim() is "inherit" or "initial" or "unset";
+
     private static TEnum GetEnum<TEnum>(IDictionary<string, DeclWinner> winners, string key, TEnum fallback, ICollection<StyleDiagnostic>? diagnostics) where TEnum : struct
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
@@ -286,6 +292,7 @@ public sealed class StyleResolver
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
         switch (raw)
         {
             case int i: return i;
@@ -301,6 +308,7 @@ public sealed class StyleResolver
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
         switch (raw)
         {
             case double d: return d;
@@ -317,6 +325,7 @@ public sealed class StyleResolver
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
         switch (raw)
         {
             case Length l: return l;
@@ -334,12 +343,21 @@ public sealed class StyleResolver
     {
         if (!winners.TryGetValue(key, out var w)) return fallback;
         var raw = ResolveVars(w.Value, winners);
+        if (IsCssWideKeyword(raw)) return fallback;
         switch (raw)
         {
-            // "auto" and "none" (valid on max-*) both mean "no explicit constraint".
-            case string s when string.Equals(s, "auto", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(s, "none", StringComparison.OrdinalIgnoreCase):
+            case string s when string.Equals(s, "auto", StringComparison.OrdinalIgnoreCase):
                 return LengthOrAuto.Auto();
+            // "none" removes the constraint, but it is only valid on max-width/max-height.
+            // On any other length property it is invalid CSS and must be diagnosed.
+            case string s when string.Equals(s, "none", StringComparison.OrdinalIgnoreCase):
+                if (string.Equals(key, "max-width", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(key, "max-height", StringComparison.OrdinalIgnoreCase))
+                {
+                    return LengthOrAuto.Auto();
+                }
+                Report(diagnostics, key, s, $"'none' is not valid for {key}; only max-width/max-height accept it");
+                return fallback;
             case string s when s.EndsWith("%", StringComparison.Ordinal) && double.TryParse(s.TrimEnd('%'), out var pct):
                 return LengthOrAuto.FromPercent(pct);
             case string s when double.TryParse(TrimPx(s), out var d2):

@@ -199,4 +199,71 @@ public class StyleResolverCascadeTests
         new StyleResolver().Compute(Div("c"), new[] { sheet }, env: null, parent: null, diagnostics);
         Assert.Empty(diagnostics);
     }
+
+    [Fact]
+    public void CssWideKeyword_OnLengthNumberInt_IsNotDiagnosedAsInvalid()
+    {
+        // inherit/initial/unset are valid on every property. On length/number/int
+        // properties they must fall back silently, never emitting a diagnostic.
+        var css = ".c { width: inherit; order: unset; flex-grow: initial; height: inherit; row-gap: initial; }";
+        var sheet = CssParser.Parse(css);
+        var diagnostics = new List<StyleDiagnostic>();
+        var style = new StyleResolver().Compute(Div("c"), new[] { sheet }, env: null, parent: null, diagnostics);
+
+        Assert.Empty(diagnostics);
+        // Falls back to defaults since no explicit value/keyword resolution applies here.
+        Assert.Equal(ResolvedStyle.Default.Width, style.Width);
+        Assert.Equal(ResolvedStyle.Default.Order, style.Order);
+        Assert.Equal(ResolvedStyle.Default.FlexGrow, style.FlexGrow);
+        Assert.Equal(ResolvedStyle.Default.Height, style.Height);
+        Assert.Equal(ResolvedStyle.Default.RowGap, style.RowGap);
+    }
+
+    [Theory]
+    [InlineData("max-width")]
+    [InlineData("max-height")]
+    public void None_OnMaxConstraint_ResolvesToAuto_WithoutDiagnostic(string property)
+    {
+        var css = ".c { " + property + ": none; }";
+        var sheet = CssParser.Parse(css);
+        var diagnostics = new List<StyleDiagnostic>();
+        var style = new StyleResolver().Compute(Div("c"), new[] { sheet }, env: null, parent: null, diagnostics);
+
+        Assert.Empty(diagnostics);
+        var value = (LengthOrAuto)typeof(ResolvedStyle)
+            .GetProperty(property == "max-width" ? "MaxWidth" : "MaxHeight")!
+            .GetValue(style)!;
+        Assert.True(value.IsAuto);
+    }
+
+    [Theory]
+    [InlineData("width")]
+    [InlineData("height")]
+    [InlineData("min-width")]
+    [InlineData("min-height")]
+    [InlineData("flex-basis")]
+    public void None_OnNonMaxLengthProperty_IsDiagnosed_AndFallsBack(string property)
+    {
+        // 'none' is only valid on max-width/max-height. On any other length
+        // property it is invalid CSS and must be reported, not silently accepted.
+        var css = ".c { " + property + ": none; }";
+        var sheet = CssParser.Parse(css);
+        var diagnostics = new List<StyleDiagnostic>();
+        var style = new StyleResolver().Compute(Div("c"), new[] { sheet }, env: null, parent: null, diagnostics);
+
+        Assert.Contains(diagnostics, d => d.Property == property);
+
+        var field = property switch
+        {
+            "width" => "Width",
+            "height" => "Height",
+            "min-width" => "MinWidth",
+            "min-height" => "MinHeight",
+            "flex-basis" => "FlexBasis",
+            _ => throw new System.ArgumentOutOfRangeException(nameof(property))
+        };
+        var value = (LengthOrAuto)typeof(ResolvedStyle).GetProperty(field)!.GetValue(style)!;
+        var expected = (LengthOrAuto)typeof(ResolvedStyle).GetProperty(field)!.GetValue(ResolvedStyle.Default)!;
+        Assert.Equal(expected, value);
+    }
 }
