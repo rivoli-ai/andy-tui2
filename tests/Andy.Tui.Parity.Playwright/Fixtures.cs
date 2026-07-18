@@ -10,26 +10,46 @@ namespace Andy.Tui.Parity.Playwright;
 /// scenario objects generate both the reference HTML and the Andy.Tui inputs,
 /// so the two sides can never drift apart.
 ///
-/// When a Chromium build is not available (for example a developer machine that
-/// never ran <c>playwright install</c>), the tests degrade to a no-op instead
-/// of failing, because <see cref="TestUtil.TryCreatePlaywrightAsync"/> returns
-/// null. In CI the browser is installed, so the comparison actually runs. The
-/// browser-free <see cref="DeterministicParityTests"/> guarantee coverage
-/// everywhere regardless.
+/// When a Chromium build is not available the test never silently passes with
+/// zero assertions. In CI (where the browser must be installed) a missing or
+/// broken Chromium is a hard failure, so a broken browser half is visible
+/// instead of masquerading as green. On a developer machine that never ran
+/// <c>playwright install</c> the case is reported as Skipped (not Passed), so
+/// the absence of real coverage is honest. The browser-free
+/// <see cref="DeterministicParityTests"/> guarantee coverage everywhere
+/// regardless.
 /// </summary>
 public class Fixtures
 {
     public static IEnumerable<object[]> Scenarios() =>
         ParityScenarios.All.Select(s => new object[] { s.Name });
 
-    [Theory]
+    /// <summary>
+    /// True when running under a CI system, where the Chromium browser is
+    /// expected to be installed and a missing browser must fail loudly rather
+    /// than skip. Recognizes the conventional <c>CI</c> variable set by GitHub
+    /// Actions and most other CI providers.
+    /// </summary>
+    private static bool IsCi =>
+        string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Environment.GetEnvironmentVariable("CI"), "1", StringComparison.Ordinal);
+
+    [SkippableTheory]
     [MemberData(nameof(Scenarios))]
     public async Task Browser_Parity(string name)
     {
         var scenario = ParityScenarios.All.Single(s => s.Name == name);
 
         var pw = await TestUtil.TryCreatePlaywrightAsync();
-        if (pw is null) return; // Chromium not installed locally; deterministic tests still cover this.
+        if (pw is null)
+        {
+            // A vacuous pass here would let a broken browser half look green. In
+            // CI the browser is required, so fail; locally, skip honestly.
+            Assert.False(IsCi,
+                "Chromium could not be created but is required under CI. Ensure 'playwright install' " +
+                "ran so the browser parity half actually executes instead of passing with zero assertions.");
+            throw new SkipException("Chromium not installed locally; deterministic parity tests still cover this scenario.");
+        }
 
         await using var browser = await pw.Chromium.LaunchAsync(new PW.BrowserTypeLaunchOptions { Headless = true });
         var context = await browser.NewContextAsync(new()
@@ -44,10 +64,10 @@ public class Fixtures
         await page.SetContentAsync(scenario.ToReferenceHtml());
 
         var refPositions = await GetItemTopLefts(page);
-        var reference = ParityScenarios.Normalize(refPositions);
+        var reference = ParityScenarios.OrderForComparison(refPositions);
 
         var ourRects = scenario.RunAndyTui();
-        var ours = ParityScenarios.Normalize(ourRects.Select(r => (r.X, r.Y)));
+        var ours = ParityScenarios.OrderForComparison(ourRects.Select(r => (r.X, r.Y)));
 
         Assert.Equal(reference.Length, ours.Length);
 

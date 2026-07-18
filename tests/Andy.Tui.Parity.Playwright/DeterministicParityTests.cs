@@ -21,10 +21,10 @@ public class DeterministicParityTests
     public void AndyTui_Matches_Css_Reference_Geometry(string name)
     {
         var scenario = ParityScenarios.All.Single(s => s.Name == name);
-        var expected = ParityScenarios.Normalize(ExpectedGeometry[name]);
+        var expected = ParityScenarios.OrderForComparison(ExpectedGeometry[name]);
 
         var ourRects = scenario.RunAndyTui();
-        var ours = ParityScenarios.Normalize(ourRects.Select(r => (r.X, r.Y)));
+        var ours = ParityScenarios.OrderForComparison(ourRects.Select(r => (r.X, r.Y)));
 
         Assert.Equal(expected.Length, ours.Length);
 
@@ -50,7 +50,7 @@ public class DeterministicParityTests
         var scenario = ParityScenarios.All.Single(s => s.Name == "row_display_none");
         var rects = scenario.RunAndyTui();
         Assert.Equal(2, rects.Length); // hidden item produced no box
-        var ours = ParityScenarios.Normalize(rects.Select(r => (r.X, r.Y)));
+        var ours = ParityScenarios.OrderForComparison(rects.Select(r => (r.X, r.Y)));
         Assert.Equal(0, ours[0].X, 3);
         Assert.Equal(60, ours[1].X, 3); // 50px item + 10px gap, hidden item skipped
     }

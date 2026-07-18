@@ -186,33 +186,31 @@ public static class ParityScenarios
     /// <summary>
     /// Position comparison tolerance, in pixels.
     ///
-    /// Rationale: browser layout applies sub-pixel rounding and the reference
-    /// container is anchored at a fractional page origin, so exact equality is
+    /// Rationale: browser layout applies sub-pixel rounding, so exact equality is
     /// not achievable. One pixel absorbs that rounding without hiding a real
     /// offset: every case in the matrix separates adjacent items by at least
     /// 10px (gaps) or a full item extent, so a systematic 2px+ drift on any
-    /// axis still fails. The tolerance is applied per-axis, per-item against the
-    /// normalized reference, never against a summary statistic that could mask a
-    /// consistent shift.
+    /// axis still fails. The tolerance is applied per-axis, per-item against
+    /// absolute container-relative positions, never against a summary statistic
+    /// or an offset-normalized reference that could mask a consistent shift.
     /// </summary>
     public const double PositionTolerancePx = 1.0;
 
     public static IReadOnlyList<ParityScenario> All { get; } = BuildAll();
 
     /// <summary>
-    /// Normalizes a set of top-left positions so that the minimum X and Y are
-    /// both zero, then orders them top-to-bottom, left-to-right. This removes
-    /// the container's absolute page offset (browser side) while preserving all
-    /// relative geometry, so a systematic offset cannot be hidden.
+    /// Orders a set of container-relative top-left positions top-to-bottom,
+    /// left-to-right so two independently produced sets compare in a stable
+    /// order. Positions are NOT shifted: the absolute container-relative offset
+    /// is preserved so that a systematic alignment offset (justify-content /
+    /// align-items applied or ignored) is actually detected rather than being
+    /// subtracted away. Callers must supply positions relative to the flex
+    /// container's content box (browser side subtracts the container origin;
+    /// Andy.Tui's arranged rects are already container-relative).
     /// </summary>
-    public static (double X, double Y)[] Normalize(IEnumerable<(double X, double Y)> points)
+    public static (double X, double Y)[] OrderForComparison(IEnumerable<(double X, double Y)> points)
     {
-        var arr = points.ToArray();
-        if (arr.Length == 0) return arr;
-        var minX = arr.Min(p => p.X);
-        var minY = arr.Min(p => p.Y);
-        return arr
-            .Select(p => (X: p.X - minX, Y: p.Y - minY))
+        return points
             .OrderBy(p => Math.Round(p.Y, 3))
             .ThenBy(p => Math.Round(p.X, 3))
             .ToArray();
