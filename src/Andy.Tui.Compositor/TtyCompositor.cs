@@ -196,6 +196,7 @@ public sealed class TtyCompositor : ICompositor
                     var attrs = cell.Attrs;
                     var fg = cell.Fg;
                     var bg = cell.Bg;
+                    var link = cell.Hyperlink;
                     var text = new System.Text.StringBuilder();
 
                     // A run extends while attributes/colors match and no cell has
@@ -206,7 +207,11 @@ public sealed class TtyCompositor : ICompositor
                     while (x < colEnd && !emitted[rowBase + x])
                     {
                         var c2 = grid[x, row];
-                        if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg) break;
+                        // Split runs on a hyperlink boundary as well, so each emitted
+                        // run is a single self-contained OSC 8 span (or none). This keeps
+                        // hyperlink controls out of the cell stream and guarantees per-run
+                        // termination.
+                        if (c2.Attrs != attrs || c2.Fg != fg || c2.Bg != bg || c2.Hyperlink != link) break;
                         // Use a space for null (untouched/transparent) graphemes so a
                         // full repaint clears the cell. Wide-glyph continuation cells
                         // carry an empty grapheme and contribute no text while still
@@ -221,7 +226,7 @@ public sealed class TtyCompositor : ICompositor
                     {
                         // ColEnd is the exclusive terminal column after the run,
                         // derived from cell columns rather than UTF-16 length.
-                        runs.Add(new RowRun(row, start, x, attrs, fg, bg, runText));
+                        runs.Add(new RowRun(row, start, x, attrs, fg, bg, runText) { Hyperlink = link });
                     }
                 }
             }
@@ -367,7 +372,7 @@ public sealed class TtyCompositor : ICompositor
             if (width == 2 && x == clipRight - 1)
             {
                 var bgEdge = t.Bg ?? grid[x, y].Bg;
-                grid[x, y] = new Cell("?", 1, t.Fg, bgEdge, t.Attrs);
+                grid[x, y] = new Cell("?", 1, t.Fg, bgEdge, t.Attrs) { Hyperlink = t.Hyperlink };
                 lastLeadX = x;
                 x += 1;
                 continue;
@@ -377,14 +382,14 @@ public sealed class TtyCompositor : ICompositor
             if (x >= clipLeft)
             {
                 var bg = t.Bg ?? grid[x, y].Bg;
-                grid[x, y] = new Cell(grapheme, (byte)width, t.Fg, bg, t.Attrs);
+                grid[x, y] = new Cell(grapheme, (byte)width, t.Fg, bg, t.Attrs) { Hyperlink = t.Hyperlink };
                 lastLeadX = x;
                 if (width == 2 && x + 1 < clipRight)
                 {
                     // Continuation cell: an empty grapheme emits nothing, so the wide
                     // glyph owns both columns. Share colors with the lead cell.
                     var bg2 = t.Bg ?? grid[x + 1, y].Bg;
-                    grid[x + 1, y] = new Cell("", 0, t.Fg, bg2, t.Attrs);
+                    grid[x + 1, y] = new Cell("", 0, t.Fg, bg2, t.Attrs) { Hyperlink = t.Hyperlink };
                 }
             }
             x += width;
