@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
     <ProjectReference Include="..\..\src\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
+    <ProjectReference Include="..\..\src\Andy.Tui.Input\Andy.Tui.Input.csproj" />
   </ItemGroup>
 
 </Project>
