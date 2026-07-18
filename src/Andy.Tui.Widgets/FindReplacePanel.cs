@@ -4,20 +4,23 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class FindReplacePanel
+    public sealed class FindReplacePanel : WidgetBase
     {
         private string _find = string.Empty;
         private string _replace = string.Empty;
-        private bool _visible;
         private DL.Rgb24 _bg = new DL.Rgb24(10,10,10);
         private DL.Rgb24 _fg = new DL.Rgb24(230,230,230);
         private DL.Rgb24 _accent = new DL.Rgb24(200,200,80);
-        public void SetVisible(bool v) => _visible = v;
+
+        // Hidden by default; visibility is now backed by WidgetBase.IsVisible and
+        // the base Render short-circuits when not visible (matching the prior
+        // _visible early-return behaviour).
+        public FindReplacePanel() => SetVisible(false);
+
         public void SetText(string find, string replace) { _find = find ?? string.Empty; _replace = replace ?? string.Empty; }
         public (string Find, string Replace) GetText() => (_find, _replace);
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
-            if (!_visible) return;
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             int panelH = 3;
             b.PushClip(new DL.ClipPush(x,y,w,h));

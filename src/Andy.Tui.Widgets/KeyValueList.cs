@@ -6,7 +6,7 @@ using L = Andy.Tui.Layout;
 
 namespace Andy.Tui.Widgets
 {
-    public sealed class KeyValueList
+    public sealed class KeyValueList : WidgetBase
     {
         private readonly List<(string Key, string Value)> _items = new();
         private DL.Rgb24 _keyFg = new DL.Rgb24(180,180,180);
@@ -19,7 +19,7 @@ namespace Andy.Tui.Widgets
         }
         public void SetColors(DL.Rgb24 key, DL.Rgb24 val, DL.Rgb24 bg) { _keyFg = key; _valFg = val; _bg = bg; }
 
-        public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
+        protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
         {
             int x=(int)rect.X, y=(int)rect.Y, w=(int)rect.Width, h=(int)rect.Height;
             if (w<=0||h<=0) return;

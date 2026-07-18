@@ -4,7 +4,7 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class RadioGroup : IThemeable, IStyleable
+public sealed class RadioGroup : WidgetBase, IThemeable, IStyleable
 {
     private readonly List<string> _items = new();
     public int SelectedIndex { get; private set; } = -1;
@@ -35,7 +35,7 @@ public sealed class RadioGroup : IThemeable, IStyleable
     }
     public void SetSelectedIndex(int index) => SelectedIndex = Math.Clamp(index, -1, _items.Count - 1);
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;

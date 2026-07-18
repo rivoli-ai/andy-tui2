@@ -4,11 +4,12 @@ using ST = Andy.Tui.Style;
 
 namespace Andy.Tui.Widgets;
 
-public sealed class Toggle : IThemeable, IStyleable
+public sealed class Toggle : WidgetBase, IThemeable, IStyleable
 {
     public bool Checked { get; private set; }
     public string? Label { get; private set; }
-    public bool Focused { get; private set; }
+
+    public override bool Focusable => true;
     public DL.Rgb24 Fg { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Foreground, new DL.Rgb24(220, 220, 220));
     public DL.Rgb24 BgOn { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.Success, new DL.Rgb24(60, 120, 70));
     public DL.Rgb24 BgOff { get; private set; } = ST.ThemeContext.Current.GetRgb(ST.ThemeToken.ForegroundDisabled, new DL.Rgb24(80, 80, 80));
@@ -38,9 +39,8 @@ public sealed class Toggle : IThemeable, IStyleable
     public void SetChecked(bool value) => Checked = value;
     public void ToggleChecked() => Checked = !Checked;
     public void SetLabel(string? text) => Label = text;
-    public void SetFocused(bool f) => Focused = f;
 
-    public void Render(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
+    protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder builder)
     {
         int x = (int)rect.X;
         int y = (int)rect.Y;
@@ -52,7 +52,7 @@ public sealed class Toggle : IThemeable, IStyleable
         builder.DrawBorder(new DL.Border(x, y, w, h, "single", Border));
         var text = Checked ? " ON " : " OFF";
         if (!string.IsNullOrEmpty(Label)) text = ($"{Label}:{text}");
-        var attrs = Focused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None;
+        var attrs = IsFocused ? DL.CellAttrFlags.Bold : DL.CellAttrFlags.None;
         builder.DrawText(new DL.TextRun(x + 1, y, text, Fg, bg, attrs));
         builder.Pop();
     }
