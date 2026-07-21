@@ -31,9 +31,10 @@ namespace Andy.Tui.Widgets
         }
 
         public void Hide() => _visible = false;
-        /// <summary>Whether the dialog is currently shown. Distinct from the base widget
-        /// visibility flag; the dialog manages its own open/closed state.</summary>
-        public new bool IsVisible() => _visible;
+        /// <summary>Whether the dialog is currently open (shown). This is the dialog's own
+        /// open/closed state and is deliberately separate from the inherited
+        /// <see cref="WidgetBase.IsVisible"/> widget-visibility flag, so the two never shadow.</summary>
+        public bool IsOpen() => _visible;
         public string GetInputText() => _inputText;
         public ModalResult GetResult() => _result;
 
