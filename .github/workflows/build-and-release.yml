@@ -44,24 +44,21 @@ jobs:
 
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-        # Pack every documented library exactly once. Each src project produces
-        # its own package (the umbrella Andy.Tui is a dependency meta-package that
-        # references them; Andy.Tui.CliWidgets is an opt-in add-on). Iterating the
-        # src project files guarantees each documented package is emitted once and
-        # none are silently dropped.
-        for proj in $(find src -maxdepth 2 -name '*.csproj' | sort); do
-          echo "Packing $proj"
-          # No --no-build: some documented projects (e.g. Andy.Tui.CliWidgets)
-          # are not part of the solution graph yet, so let pack build each one
-          # from the already-restored Release output.
-          dotnet pack "$proj" \
-            --configuration Release \
-            --output ./artifacts \
-            -p:PackageVersion=$VERSION
-        done
+        # Andy.Tui is the only public package. Its project bundles every source
+        # assembly, including CLI widgets, into one installable .nupkg.
+        dotnet pack src/Andy.Tui/Andy.Tui.csproj \
+          --configuration Release \
+          --output ./artifacts \
+          -p:PackageVersion=$VERSION
 
-        echo "Produced packages:"
-        ls -1 ./artifacts/*.nupkg
+        PACKAGES=(./artifacts/*.nupkg)
+        if [[ ${#PACKAGES[@]} -ne 1 || "${PACKAGES[0]}" != "./artifacts/Andy.Tui.$VERSION.nupkg" ]]; then
+          echo "Expected exactly ./artifacts/Andy.Tui.$VERSION.nupkg; found:"
+          printf '%s\n' "${PACKAGES[@]}"
+          exit 1
+        fi
+
+        echo "Produced package: ${PACKAGES[0]}"
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -89,7 +86,13 @@ jobs:
     
     - name: Publish to NuGet
       run: |
-        dotnet nuget push ./artifacts/*.nupkg \
+        PACKAGES=(./artifacts/*.nupkg)
+        if [[ ${#PACKAGES[@]} -ne 1 || ! "$(basename "${PACKAGES[0]}")" =~ ^Andy\.Tui\.[0-9] ]]; then
+          echo "Refusing to publish: expected exactly one Andy.Tui package."
+          printf '%s\n' "${PACKAGES[@]}"
+          exit 1
+        fi
+        dotnet nuget push "${PACKAGES[0]}" \
           --source ${{ env.NUGET_SOURCE }} \
           --api-key ${{ secrets.NUGET_API_KEY }} \
           --skip-duplicate
@@ -113,7 +116,13 @@ jobs:
     
     - name: Publish to NuGet
       run: |
-        dotnet nuget push ./artifacts/*.nupkg \
+        PACKAGES=(./artifacts/*.nupkg)
+        if [[ ${#PACKAGES[@]} -ne 1 || ! "$(basename "${PACKAGES[0]}")" =~ ^Andy\.Tui\.[0-9] ]]; then
+          echo "Refusing to publish: expected exactly one Andy.Tui package."
+          printf '%s\n' "${PACKAGES[@]}"
+          exit 1
+        fi
+        dotnet nuget push "${PACKAGES[0]}" \
           --source ${{ env.NUGET_SOURCE }} \
           --api-key ${{ secrets.NUGET_API_KEY }}
     

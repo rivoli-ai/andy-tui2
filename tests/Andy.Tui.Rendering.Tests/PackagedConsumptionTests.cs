@@ -3,12 +3,12 @@ using System.Diagnostics;
 namespace Andy.Tui.Rendering.Tests;
 
 /// <summary>
-/// Installed-package harness. The heavyweight path packs the meta-package to a temporary local
+/// Installed-package harness. The heavyweight path packs Andy.Tui to a temporary local
 /// feed and builds/runs a throwaway console app against it (see scripts/package-smoke-test.sh);
 /// it is opt-in via the ANDY_TUI_PACKAGE_TEST=1 environment variable so the default test run stays
 /// fast and hermetic across the many concurrent build workspaces in CI. The always-on assertions
 /// guard the harness itself: the smoke-test script must exist and be runnable, and the packed
-/// surface it depends on (the meta-package's embedded library set) must stay complete.
+/// surface it depends on (the package's bundled assembly set) must stay complete.
 /// </summary>
 public class PackagedConsumptionTests
 {
@@ -33,10 +33,9 @@ public class PackagedConsumptionTests
         Assert.Contains("dotnet run", scriptText);
         Assert.Contains("CONSUMER_OK", scriptText);
 
-        // The consumer references the meta-package, which must pull in every runtime library the
-        // pipeline needs. Andy.Tui is a dependency-only meta-package: each core library is a real
-        // ProjectReference (which packs as a NuGet <dependency>), so guard that every core library
-        // is still referenced and a packed-and-consumed app cannot silently lose a dependency.
+        // The consumer references one package, which must bundle every runtime
+        // library the pipeline needs. Guard the critical project references so a
+        // packed-and-consumed app cannot silently lose an assembly.
         var pkgProj = File.ReadAllText(Path.Combine(root, "src", "Andy.Tui", "Andy.Tui.csproj"));
         foreach (var lib in new[]
         {

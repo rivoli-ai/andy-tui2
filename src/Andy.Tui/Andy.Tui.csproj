@@ -1,54 +1,73 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Andy.Tui is a dependency meta-package.
-
-    It ships no assemblies of its own. Instead it declares NuGet dependencies on
-    every published library so that `dotnet add package Andy.Tui` pulls the whole
-    framework in one step. Each referenced library is packed and published as its
-    own package (see Directory.Build.props IsPackable defaults and the release
-    workflow), and every ProjectReference below becomes a real package dependency
-    in the produced .nupkg.
-
-    CLI-widget decision: Andy.Tui.CliWidgets is an opt-in add-on published as its
-    own package that depends on this meta-package. It is intentionally NOT a
-    dependency here, because CliWidgets -> Andy.Tui -> CliWidgets would be a cycle.
-    Consumers who want the CLI widgets add `Andy.Tui.CliWidgets` explicitly.
-  -->
+  <!-- Andy.Tui is the repository's only public NuGet package. It bundles the
+       output of every source library so consumers need one package reference and
+       the release workflow never has to publish implementation packages. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <Description>Meta-package for Andy.Tui v2. Depends on every Andy.Tui library so a single package reference pulls in the whole reactive TUI framework.</Description>
-    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet;meta-package</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageId>Andy.Tui</PackageId>
+    <Description>Complete Andy.Tui v2 reactive terminal UI framework for .NET, including core, rendering, widgets, and CLI widgets.</Description>
+    <PackageTags>tui;terminal;ui;reactive;ansi;dotnet;widgets</PackageTags>
+    <PackageIcon>andy_tui_icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- Pure meta-package: no compiled output of its own. -->
-    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- Keep build-output collection enabled so NuGet invokes the custom hook
+         that adds all ProjectReference outputs alongside Andy.Tui.dll. -->
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <!-- This packaging host has no PDB of its own. Component PDBs remain build
+         artifacts; attempting to create a symbol package would be empty. -->
+    <IncludeSymbols>false</IncludeSymbols>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <!-- NU5128: a dependency-only package declares no lib/ref assemblies. Expected for a meta-package. -->
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);BundleProjectReferenceOutputs</TargetsForTfmSpecificBuildOutput>
+    <!-- NU5128 expects dependency groups to mirror lib folders; this bundled
+         package intentionally has no NuGet dependencies. -->
     <NoWarn>$(NoWarn);CS1591;NU5128</NoWarn>
   </PropertyGroup>
 
-  <!--
-    Real package dependencies. No PrivateAssets, so each referenced library is
-    emitted as a <dependency> in the produced nuspec (and its types flow to
-    consumers such as Andy.Tui.CliWidgets) instead of being hidden and hand-copied.
-  -->
   <ItemGroup>
-    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" />
-    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" />
-    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" />
+    <None Include="..\..\assets\andy_tui_icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
+
+  <!-- These are build-time inputs that are bundled into this package, not NuGet
+       dependencies that need to be published independently. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Andy.Tui.Animations\Andy.Tui.Animations.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Backend.Terminal\Andy.Tui.Backend.Terminal.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.CliWidgets\Andy.Tui.CliWidgets.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Compose\Andy.Tui.Compose.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Compositor\Andy.Tui.Compositor.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Core\Andy.Tui.Core.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.DisplayList\Andy.Tui.DisplayList.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Input\Andy.Tui.Input.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Layout\Andy.Tui.Layout.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Observability\Andy.Tui.Observability.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Style\Andy.Tui.Style.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Text\Andy.Tui.Text.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Virtualization\Andy.Tui.Virtualization.csproj" PrivateAssets="All" />
+    <ProjectReference Include="..\Andy.Tui.Widgets\Andy.Tui.Widgets.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- NuGet's SDK pack target normally turns ProjectReferences into package
+       dependencies. This supported extension point instead copies each resolved
+       project assembly and its XML documentation into lib/net8.0. -->
+  <Target Name="BundleProjectReferenceOutputs" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <_BundledAssembly Include="@(ReferenceCopyLocalPaths)"
+                        Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' and '%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+      <BuildOutputInPackage Include="@(_BundledAssembly)"
+                            TargetPath="%(_BundledAssembly.DestinationSubPath)" />
+      <_BundledXmlDoc Include="@(_BundledAssembly->'%(RootDir)%(Directory)%(Filename).xml')"
+                      Condition="Exists('%(RootDir)%(Directory)%(Filename).xml')" />
+      <BuildOutputInPackage Include="@(_BundledXmlDoc)"
+                            TargetPath="%(_BundledXmlDoc.Filename)%(_BundledXmlDoc.Extension)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

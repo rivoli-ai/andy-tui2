@@ -2,7 +2,7 @@ namespace Andy.Tui.Packaging.Tests;
 
 /// <summary>
 /// End-to-end smoke test: a fresh consumer project that has NO project references
-/// restores only the produced packages, compiles against documented public APIs,
+/// restores only the produced package, compiles against documented public APIs,
 /// and loads the assemblies at runtime.
 /// </summary>
 [Collection("packaging")]
@@ -44,13 +44,12 @@ public sealed class ConsumerSmokeTests
                   </PropertyGroup>
                   <ItemGroup>
                     <PackageReference Include="Andy.Tui" Version="{_fx.Version}" />
-                    <PackageReference Include="Andy.Tui.CliWidgets" Version="{_fx.Version}" />
                   </ItemGroup>
                 </Project>
                 """);
 
-            // Documented public APIs reached only through the meta-package graph
-            // (Andy.Tui.DisplayList) and the CLI add-on (Andy.Tui.CliWidgets).
+            // Documented public APIs reached through the single bundled package,
+            // including the formerly separate CLI widgets assembly.
             File.WriteAllText(Path.Combine(consumerDir, "Program.cs"),
                 """
                 using Andy.Tui.DisplayList;

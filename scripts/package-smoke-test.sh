@@ -2,7 +2,7 @@
 #
 # Installed-package smoke test.
 #
-# Packs the Andy.Tui meta-package to a temporary local NuGet feed, generates a throwaway console
+# Packs Andy.Tui to a temporary local NuGet feed, generates a throwaway console
 # application that references ONLY that packed artifact (not the source projects), and builds and
 # runs it. This proves the shipped .nupkg actually exposes a usable public surface — the full
 # reactive-to-terminal pipeline (DisplayList -> Compositor -> AnsiEncoder) — to an external
@@ -31,12 +31,19 @@ trap cleanup EXIT
 echo "==> Package version: ${PKG_VERSION}"
 echo "==> Temp workspace:  ${WORK}"
 
-# The meta-package embeds the built library DLLs, so build them first, then pack.
+# The package embeds the built library DLLs, so build them first, then pack.
 echo "==> Building libraries (${CONFIG})"
 dotnet build "${REPO_ROOT}/src/Andy.Tui/Andy.Tui.csproj" -c "${CONFIG}" --nologo -v quiet
 
-echo "==> Packing meta-package to local feed"
-dotnet pack "${REPO_ROOT}/src/Andy.Tui/Andy.Tui.csproj" -c "${CONFIG}" --no-build --nologo -v quiet -o "${FEED}"
+echo "==> Packing single public package to local feed"
+dotnet pack "${REPO_ROOT}/src/Andy.Tui/Andy.Tui.csproj" -c "${CONFIG}" --nologo -v quiet -o "${FEED}"
+
+PACKAGES=("${FEED}"/*.nupkg)
+if [[ ${#PACKAGES[@]} -ne 1 || "$(basename "${PACKAGES[0]}")" != "Andy.Tui.${PKG_VERSION}.nupkg" ]]; then
+  echo "FAIL: expected exactly Andy.Tui.${PKG_VERSION}.nupkg; found:" >&2
+  printf '%s\n' "${PACKAGES[@]}" >&2
+  exit 1
+fi
 
 # A consumer that references the packed artifact and exercises the real pipeline end to end.
 cat > "${APP}/Consumer.csproj" <<EOF
@@ -56,6 +63,7 @@ EOF
 
 cat > "${APP}/Program.cs" <<'EOF'
 using Andy.Tui.Backend.Terminal;
+using Andy.Tui.CliWidgets;
 using Andy.Tui.Compositor;
 using Andy.Tui.DisplayList;
 
@@ -70,6 +78,8 @@ var cells = comp.Composite(b.Build(), (12, 1));
 var dirty = comp.Damage(new CellGrid(12, 1), cells);
 var runs = comp.RowRuns(cells, dirty);
 var bytes = new AnsiEncoder().Encode(runs, new TerminalCapabilities { TrueColor = true, Palette256 = true });
+var counter = new TokenCounter();
+counter.AddTokens(1, 2);
 
 // Print a marker only if the encoded frame contains the drawn text.
 var s = System.Text.Encoding.UTF8.GetString(bytes.ToArray());

@@ -5,6 +5,7 @@
 - 📖 [Getting Started](GETTING_STARTED.md) - Installation and basic usage
 - 🏗️ [Architecture](ARCHITECTURE.md) - System design and components
 - 🎨 [Widget Catalog](WIDGETS.md) - Implemented widgets, mapped to their source files
+- 📦 [NuGet Package Cleanup](NUGET_PACKAGE_CLEANUP.md) - One-time component-package retirement runbook
 
 ## Overview
 

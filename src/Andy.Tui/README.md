@@ -71,6 +71,9 @@ for terminal setup, input handling, reactive state, and failure-safe shutdown.
 dotnet add package Andy.Tui --prerelease
 ```
 
+This single package contains every Andy.Tui assembly, including the CLI-focused
+widgets. Component assemblies are not published as separate packages.
+
 ## Documentation
 
 For full documentation, examples, and API reference, visit:

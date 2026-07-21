@@ -3,9 +3,9 @@ using System.Diagnostics;
 namespace Andy.Tui.Packaging.Tests;
 
 /// <summary>
-/// Packs every documented library from clean Release output into a private local
-/// NuGet feed, exactly once each. Shared across the packaging test classes so the
-/// (relatively expensive) pack happens a single time per test run.
+/// Invokes pack across every source project into a private local NuGet feed. Only
+/// Andy.Tui is allowed to produce a package. Shared across the packaging test
+/// classes so the relatively expensive pack happens once per test run.
 /// </summary>
 public sealed class PackagingFixture : IDisposable
 {
@@ -39,10 +39,9 @@ public sealed class PackagingFixture : IDisposable
 
         Assert.NotEmpty(projects);
 
-        // Pack every documented library from clean Release output in a SINGLE
-        // MSBuild invocation. Restoring then packing the whole set through one
-        // process (with parallel pack) is dramatically faster and more reliable
-        // than one cold `dotnet pack` per project, especially on busy CI hosts.
+        // Pack every source project in a SINGLE MSBuild invocation. This proves
+        // that IsPackable defaults prevent accidental component packages even if
+        // a future workflow mistakenly targets the complete project graph.
         PackAll(projects);
 
         ProducedPackageIds = Directory
@@ -73,7 +72,7 @@ public sealed class PackagingFixture : IDisposable
                          Properties="Configuration=Release" />
                 <MSBuild Projects="@(ProjectFile)"
                          Targets="Pack"
-                         BuildInParallel="true"
+                         BuildInParallel="false"
                          Properties="Configuration=Release;PackageVersion={Version};PackageOutputPath={FeedDir}" />
               </Target>
             </Project>

@@ -1,0 +1,32 @@
+name: Retire legacy Andy.Tui component packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type RETIRE_ANDY_TUI_COMPONENTS to unlist every legacy component version'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  retire:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'RETIRE_ANDY_TUI_COMPONENTS'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Inventory legacy component versions
+        run: scripts/retire-nuget-component-packages.sh
+
+      - name: Unlist legacy component versions
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: scripts/retire-nuget-component-packages.sh --execute
+

@@ -170,7 +170,7 @@ Implement `IBackend` to support new output targets (e.g., HTML, GUI frameworks).
 
 ```
 src/
-├── Andy.Tui/                # Umbrella meta-package
+├── Andy.Tui/                # Single bundled NuGet package
 ├── Andy.Tui.Core/           # Reactive system
 ├── Andy.Tui.Compose/        # Composition / component tree
 ├── Andy.Tui.Style/          # CSS and styling
