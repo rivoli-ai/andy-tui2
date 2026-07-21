@@ -29,7 +29,7 @@ public static class ModalDialogDemo
                 while (Console.KeyAvailable)
                 {
                     var k = Console.ReadKey(true);
-                    if (!dialog.IsVisible())
+                    if (!dialog.IsOpen())
                     {
                         if (k.Key == ConsoleKey.Escape) { running = false; break; }
                         if (k.Key == ConsoleKey.F2) hud.Enabled = !hud.Enabled;

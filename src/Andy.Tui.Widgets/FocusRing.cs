@@ -19,6 +19,15 @@ namespace Andy.Tui.Widgets
         public void Next() { if (_order.Count == 0) return; _index = (_index + 1) % _order.Count; }
         public void Prev() { if (_order.Count == 0) return; _index = (_index - 1 + _order.Count) % _order.Count; }
 
+        /// <summary>
+        /// IWidget entry point. The supplied <paramref name="rect"/> is intentionally
+        /// ignored: FocusRing is an overlay that paints rings at the absolute rects
+        /// registered via <see cref="Add"/>, not within a single layout slot. The
+        /// primary API is the rect-less <see cref="Render(DL.DisplayList, DL.DisplayListBuilder)"/>;
+        /// when hosted through the IWidget contract the container must give it a
+        /// positive-area rect for <see cref="WidgetBase.Render"/>'s visibility/area guard
+        /// to invoke this, otherwise the overlay is (harmlessly) skipped for that frame.
+        /// </summary>
         protected override void RenderCore(in L.Rect rect, DL.DisplayList baseDl, DL.DisplayListBuilder b)
             => Render(baseDl, b);
 
