@@ -107,6 +107,18 @@ public sealed class PackageContentsTests
     }
 
     [Fact]
+    public void Release_workflow_packs_only_Andy_Tui_and_guards_the_publish_input()
+    {
+        var workflow = File.ReadAllText(Path.Combine(
+            _fx.RepoRoot, ".github", "workflows", "build-and-release.yml"));
+
+        Assert.Contains("dotnet pack src/Andy.Tui/Andy.Tui.csproj", workflow);
+        Assert.DoesNotContain("find src", workflow);
+        Assert.Contains("Expected exactly one versioned Andy.Tui package", workflow);
+        Assert.Contains("Refusing to publish: expected exactly one Andy.Tui package", workflow);
+    }
+
+    [Fact]
     public void Retirement_workflow_is_guarded_and_targets_exactly_the_bundled_components()
     {
         var scriptPath = Path.Combine(

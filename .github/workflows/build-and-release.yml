@@ -52,8 +52,10 @@ jobs:
           -p:PackageVersion=$VERSION
 
         PACKAGES=(./artifacts/*.nupkg)
-        if [[ ${#PACKAGES[@]} -ne 1 || "${PACKAGES[0]}" != "./artifacts/Andy.Tui.$VERSION.nupkg" ]]; then
-          echo "Expected exactly ./artifacts/Andy.Tui.$VERSION.nupkg; found:"
+        # NuGet normalizes numeric version components (for example 07 -> 7),
+        # so validate the package ID rather than comparing the raw filename.
+        if [[ ${#PACKAGES[@]} -ne 1 || ! "$(basename "${PACKAGES[0]}")" =~ ^Andy\.Tui\.[0-9].*\.nupkg$ ]]; then
+          echo "Expected exactly one versioned Andy.Tui package; found:"
           printf '%s\n' "${PACKAGES[@]}"
           exit 1
         fi
