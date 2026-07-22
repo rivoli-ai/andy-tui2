@@ -32,6 +32,13 @@ public class HudOverlayTests
         // On first call CPU may be null; call again to get a delta
         if (!hasCpu)
         {
+            // HudOverlay samples Environment.TickCount64. Ensure the second
+            // sample occurs in a later millisecond instead of relying on test
+            // execution being slow enough to cross a clock tick.
+            var firstSampleTick = Environment.TickCount64;
+            Assert.True(SpinWait.SpinUntil(
+                () => Environment.TickCount64 > firstSampleTick,
+                TimeSpan.FromSeconds(1)));
             var b2 = new DisplayListBuilder();
             overlay.Contribute(baseDl, b2);
             dl = b2.Build();
