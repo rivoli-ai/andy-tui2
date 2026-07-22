@@ -144,7 +144,9 @@ public sealed class PackageContentsTests
         Assert.Contains("github.ref == 'refs/heads/main'", workflow);
         Assert.Contains("RETIRE_ANDY_TUI_COMPONENTS", workflow);
         Assert.Contains("scripts/retire-nuget-component-packages.sh --execute", workflow);
-        Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
+        Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_RETIRE_API_KEY }}", workflow);
+        Assert.Contains("NUGET_DELETE_DELAY_SECONDS: '15'", workflow);
+        Assert.Contains("scripts/retire-nuget-component-packages.sh --assert-none-listed", workflow);
     }
 
     private static XElement ReadNuspec(ZipArchive zip, string packageId)
