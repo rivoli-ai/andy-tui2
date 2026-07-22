@@ -10,10 +10,9 @@ public sealed class PackageContentsTests
 
     public PackageContentsTests(PackagingFixture fx) => _fx = fx;
 
-    /// <summary>Every documented library must produce exactly one package.</summary>
-    private static readonly string[] DocumentedPackages =
+    /// <summary>The assemblies bundled into the single public package.</summary>
+    private static readonly string[] BundledAssemblies =
     {
-        "Andy.Tui",
         "Andy.Tui.Animations",
         "Andy.Tui.Backend.Terminal",
         "Andy.Tui.CliWidgets",
@@ -30,54 +29,41 @@ public sealed class PackageContentsTests
         "Andy.Tui.Widgets",
     };
 
-    /// <summary>The 13 libraries the umbrella meta-package must depend on.</summary>
-    private static readonly string[] MetaPackageDependencies =
-    {
-        "Andy.Tui.Animations",
-        "Andy.Tui.Backend.Terminal",
-        "Andy.Tui.Compose",
-        "Andy.Tui.Compositor",
-        "Andy.Tui.Core",
-        "Andy.Tui.DisplayList",
-        "Andy.Tui.Input",
-        "Andy.Tui.Layout",
-        "Andy.Tui.Observability",
-        "Andy.Tui.Style",
-        "Andy.Tui.Text",
-        "Andy.Tui.Virtualization",
-        "Andy.Tui.Widgets",
-    };
-
     [Fact]
-    public void Release_produces_every_documented_package_exactly_once()
+    public void Release_produces_only_the_Andy_Tui_package()
     {
-        // No duplicates.
-        Assert.Equal(_fx.ProducedPackageIds.Count, _fx.ProducedPackageIds.Distinct().Count());
-        // Exactly the documented set, no more and no fewer.
-        Assert.Equal(
-            DocumentedPackages.OrderBy(x => x, StringComparer.Ordinal),
-            _fx.ProducedPackageIds.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Equal(new[] { "Andy.Tui" }, _fx.ProducedPackageIds);
     }
 
     [Fact]
-    public void Umbrella_is_a_dependency_meta_package_with_no_bundled_assemblies()
+    public void Andy_Tui_bundles_every_framework_assembly_without_component_dependencies()
     {
         using var zip = ZipFile.OpenRead(_fx.NupkgPath("Andy.Tui"));
 
-        // A meta-package ships no compiled assemblies of its own.
-        Assert.DoesNotContain(zip.Entries, e => e.FullName.StartsWith("lib/", StringComparison.OrdinalIgnoreCase));
-
-        // It must declare a real dependency on every library instead of hiding them.
         var deps = ReadDependencyIds(zip, "Andy.Tui");
-        foreach (var expected in MetaPackageDependencies)
-        {
-            Assert.Contains(expected, deps);
-        }
-        Assert.Equal(MetaPackageDependencies.Length, deps.Count);
+        Assert.Empty(deps);
 
-        // Documentation, icon, and SourceLink metadata must be present.
+        var packagedAssemblies = zip.Entries
+            .Where(e => e.FullName.StartsWith("lib/net8.0/", StringComparison.OrdinalIgnoreCase)
+                && e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Select(e => Path.GetFileNameWithoutExtension(e.Name))
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        var expectedAssemblies = BundledAssemblies
+            .Append("Andy.Tui")
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToList();
+        Assert.Equal(expectedAssemblies, packagedAssemblies);
+
+        foreach (var expected in BundledAssemblies)
+        {
+            Assert.Contains(zip.Entries, e =>
+                e.FullName.Equals($"lib/net8.0/{expected}.dll", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(zip.Entries, e =>
+                e.FullName.Equals($"lib/net8.0/{expected}.xml", StringComparison.OrdinalIgnoreCase));
+        }
+
         Assert.Contains(zip.Entries, e => e.Name.Equals("README.md", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(zip.Entries, e => e.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
 
         var nuspec = ReadNuspec(zip, "Andy.Tui");
         Assert.NotNull(Descendant(nuspec, "repository"));
@@ -86,54 +72,79 @@ public sealed class PackageContentsTests
         Assert.NotNull(Descendant(nuspec, "readme"));
     }
 
-    [Theory]
-    [InlineData("Andy.Tui.Core")]
-    [InlineData("Andy.Tui.Widgets")]
-    [InlineData("Andy.Tui.Layout")]
-    [InlineData("Andy.Tui.CliWidgets")]
-    public void Library_package_bundles_assembly_xmldoc_readme_and_icon(string packageId)
+    [Fact]
+    public void Package_uses_the_designated_Andy_Tui_icon_exactly()
     {
-        using var zip = ZipFile.OpenRead(_fx.NupkgPath(packageId));
+        using var zip = ZipFile.OpenRead(_fx.NupkgPath("Andy.Tui"));
+        var nuspec = ReadNuspec(zip, "Andy.Tui");
+        var iconPath = Descendant(nuspec, "icon")?.Value;
+        Assert.Equal("andy_tui_icon.png", iconPath);
 
-        Assert.Contains(zip.Entries, e =>
-            e.FullName.Equals($"lib/net8.0/{packageId}.dll", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(zip.Entries, e =>
-            e.FullName.Equals($"lib/net8.0/{packageId}.xml", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(zip.Entries, e => e.Name.Equals("README.md", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(zip.Entries, e => e.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+        var iconEntry = zip.Entries.Single(e =>
+            e.FullName.Equals(iconPath, StringComparison.OrdinalIgnoreCase));
+        Assert.Single(zip.Entries, e =>
+            e.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+        using var packagedIcon = iconEntry.Open();
+        using var expectedIcon = File.OpenRead(
+            Path.Combine(_fx.RepoRoot, "assets", "andy_tui_icon.png"));
+        using var packagedBytes = new MemoryStream();
+        using var expectedBytes = new MemoryStream();
+        packagedIcon.CopyTo(packagedBytes);
+        expectedIcon.CopyTo(expectedBytes);
+        Assert.Equal(expectedBytes.ToArray(), packagedBytes.ToArray());
     }
 
     [Fact]
-    public void Every_documented_library_produces_a_symbols_package()
-    {
-        foreach (var id in DocumentedPackages)
-        {
-            // The umbrella meta-package carries no assemblies, so it has no symbols.
-            if (id == "Andy.Tui")
-                continue;
-            var snupkg = Path.Combine(_fx.FeedDir, $"{id}.{_fx.Version}.snupkg");
-            Assert.True(File.Exists(snupkg), $"Missing symbols package for {id}: {snupkg}");
-        }
-    }
-
-    [Fact]
-    public void CliWidgets_depends_on_the_umbrella_meta_package()
-    {
-        using var zip = ZipFile.OpenRead(_fx.NupkgPath("Andy.Tui.CliWidgets"));
-        var deps = ReadDependencyIds(zip, "Andy.Tui.CliWidgets");
-        Assert.Contains("Andy.Tui", deps);
-    }
-
-    [Fact]
-    public void Umbrella_csproj_no_longer_hand_copies_dlls_or_hides_dependencies()
+    public void Package_project_suppresses_component_dependencies_and_uses_pack_extension_point()
     {
         var csproj = File.ReadAllText(
             Path.Combine(_fx.RepoRoot, "src", "Andy.Tui", "Andy.Tui.csproj"));
 
-        // Old brittle model: hide project references and manually copy built DLLs.
-        Assert.DoesNotContain("PrivateAssets=\"all\"", csproj);
+        Assert.Contains("<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>", csproj);
+        Assert.Contains("BundleProjectReferenceOutputs", csproj);
         Assert.DoesNotContain("PackagePath=\"lib/", csproj);
         Assert.DoesNotContain("bin\\$(Configuration)", csproj);
+    }
+
+    [Fact]
+    public void Release_workflow_packs_only_Andy_Tui_and_guards_the_publish_input()
+    {
+        var workflow = File.ReadAllText(Path.Combine(
+            _fx.RepoRoot, ".github", "workflows", "build-and-release.yml"));
+
+        Assert.Contains("dotnet pack src/Andy.Tui/Andy.Tui.csproj", workflow);
+        Assert.DoesNotContain("find src", workflow);
+        Assert.Contains("Expected exactly one versioned Andy.Tui package", workflow);
+        Assert.Contains("Refusing to publish: expected exactly one Andy.Tui package", workflow);
+    }
+
+    [Fact]
+    public void Retirement_workflow_is_guarded_and_targets_exactly_the_bundled_components()
+    {
+        var scriptPath = Path.Combine(
+            _fx.RepoRoot, "scripts", "retire-nuget-component-packages.sh");
+        var retirementIds = File.ReadLines(scriptPath)
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("\"Andy.Tui.", StringComparison.Ordinal)
+                && line.EndsWith('"'))
+            .Select(line => line.Trim('"'))
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(
+            BundledAssemblies.OrderBy(id => id, StringComparer.Ordinal),
+            retirementIds);
+        Assert.DoesNotContain("Andy.Tui", retirementIds);
+
+        var workflow = File.ReadAllText(Path.Combine(
+            _fx.RepoRoot,
+            ".github",
+            "workflows",
+            "retire-nuget-component-packages.yml"));
+        Assert.Contains("github.ref == 'refs/heads/main'", workflow);
+        Assert.Contains("RETIRE_ANDY_TUI_COMPONENTS", workflow);
+        Assert.Contains("scripts/retire-nuget-component-packages.sh --execute", workflow);
+        Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
     }
 
     private static XElement ReadNuspec(ZipArchive zip, string packageId)

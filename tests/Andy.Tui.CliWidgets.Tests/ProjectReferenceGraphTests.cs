@@ -10,9 +10,9 @@ namespace Andy.Tui.CliWidgets.Tests;
 /// Guards the integrity of the project-reference graph for the CLI widgets area.
 ///
 /// These tests exist because Andy.Tui.CliWidgets previously referenced only the
-/// umbrella Andy.Tui project, whose references are marked PrivateAssets="all".
-/// That made DisplayList/Layout/Widgets types invisible at compile time and broke
-/// the build. The tests below detect two classes of regression:
+/// packaging project instead of its concrete compile-time dependencies. The
+/// packaging project now references CliWidgets so it can bundle the assembly;
+/// a reverse reference would create a cycle. The tests below detect:
 ///   1. Missing references — a &lt;ProjectReference&gt; that points at a file that does
 ///      not exist on disk (a dangling / typo'd reference).
 ///   2. Cyclic references — a dependency cycle between source projects.
@@ -132,8 +132,8 @@ public class ProjectReferenceGraphTests
             .Select(Path.GetFileNameWithoutExtension)
             .ToHashSet(StringComparer.Ordinal);
 
-        // CLI widgets consume types from these namespaces directly, so they must be
-        // referenced explicitly rather than pulled in transitively through the umbrella.
+        // CLI widgets consume types from these namespaces directly, so they must
+        // be referenced explicitly rather than through the packaging project.
         foreach (var required in new[] { "Andy.Tui.DisplayList", "Andy.Tui.Layout", "Andy.Tui.Widgets" })
         {
             Assert.True(referencedNames.Contains(required),

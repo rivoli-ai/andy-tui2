@@ -15,7 +15,8 @@
 #   5. Skip only projects on an explicit, tracked exclusion list.
 #
 # Usage:
-#   scripts/ci-graph-test.sh [--configuration Debug|Release] [--require-clean] [--no-test]
+#   scripts/ci-graph-test.sh [--configuration Debug|Release] [--require-clean]
+#                            [--clean-check-only] [--no-test]
 #
 # Environment:
 #   RUN_PARITY=true   Also run the Playwright browser parity suite (otherwise
@@ -26,6 +27,7 @@ set -euo pipefail
 CONFIGURATION="Debug"
 REQUIRE_CLEAN="false"
 RUN_TESTS="true"
+CLEAN_CHECK_ONLY="false"
 SOLUTION="Andy.Tui.sln"
 TFM="net8.0"
 
@@ -41,6 +43,8 @@ while [[ $# -gt 0 ]]; do
       CONFIGURATION="$2"; shift 2 ;;
     --require-clean)
       REQUIRE_CLEAN="true"; shift ;;
+    --clean-check-only)
+      CLEAN_CHECK_ONLY="true"; shift ;;
     --no-test)
       RUN_TESTS="false"; shift ;;
     *)
@@ -90,6 +94,7 @@ echo "=============================================================="
 echo " Andy.Tui project-graph build+test"
 echo "   configuration : ${CONFIGURATION}"
 echo "   require-clean : ${REQUIRE_CLEAN}"
+echo "   check-only    : ${CLEAN_CHECK_ONLY}"
 echo "   run-tests     : ${RUN_TESTS}"
 echo "   RUN_PARITY    : ${RUN_PARITY:-false}"
 echo "=============================================================="
@@ -108,6 +113,15 @@ if [[ "${REQUIRE_CLEAN}" == "true" ]]; then
     echo "${STALE}" >&2
     exit 1
   fi
+fi
+
+if [[ "${CLEAN_CHECK_ONLY}" == "true" ]]; then
+  if [[ "${REQUIRE_CLEAN}" != "true" ]]; then
+    echo "::error::--clean-check-only requires --require-clean" >&2
+    exit 2
+  fi
+  echo "==> Clean-check-only completed successfully"
+  exit 0
 fi
 
 # ---------------------------------------------------------------------------

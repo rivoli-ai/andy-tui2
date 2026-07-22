@@ -23,10 +23,10 @@ cd MyTuiApp
 dotnet add package Andy.Tui --prerelease
 ```
 
-The `Andy.Tui` package is an umbrella that pulls in the building blocks used
-below: `Andy.Tui.Core` (`FrameScheduler`, `Signal<T>`), `Andy.Tui.DisplayList`
-(`DisplayListBuilder` and its ops), and `Andy.Tui.Backend.Terminal`
-(`CapabilityDetector`, `IPtyIo`).
+The `Andy.Tui` package bundles all framework assemblies used below, including
+`Andy.Tui.Core` (`FrameScheduler`, `Signal<T>`), `Andy.Tui.DisplayList`
+(`DisplayListBuilder` and its ops), `Andy.Tui.Backend.Terminal`
+(`CapabilityDetector`, `IPtyIo`), and `Andy.Tui.CliWidgets`.
 
 ## Minimal example
 

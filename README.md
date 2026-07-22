@@ -39,8 +39,8 @@ A modern, reactive TUI framework for .NET 8 with declarative components, reactiv
 - **Testing**: Deterministic frame rendering for reliable unit tests
 
 ## Repository structure
-- `src/` — library projects (packable)
-  - `Andy.Tui` (umbrella meta-package)
+- `src/` — library projects (separate assemblies; only `Andy.Tui` is packable)
+  - `Andy.Tui` (single bundled NuGet package)
   - `Andy.Tui.Core`
   - `Andy.Tui.Compose`
   - `Andy.Tui.Style`
@@ -74,11 +74,11 @@ dotnet add package Andy.Tui --prerelease
 > **Note**: Pre-release packages are published automatically for every commit to main branch.
 
 ### Package model
-- `Andy.Tui` is a **dependency meta-package**: it ships no assemblies of its own and instead declares NuGet dependencies on every library, so a single reference pulls in the whole framework. Each library is also published as its own package and can be referenced individually.
-- `Andy.Tui.CliWidgets` is an **opt-in add-on** package that depends on the `Andy.Tui` meta-package. It is not pulled in by default (that would create a dependency cycle); add it explicitly when you want the CLI-focused widgets:
-  ```bash
-  dotnet add package Andy.Tui.CliWidgets --prerelease
-  ```
+- `Andy.Tui` is the repository's **only public NuGet package**. It bundles all
+  framework assemblies, including `Andy.Tui.CliWidgets`, so one package reference
+  provides the complete framework.
+- Component projects remain separate assemblies for source-level modularity, but
+  they are not packed or published independently.
 
 ## Getting started
 
@@ -114,18 +114,24 @@ rendering, and failure-safe shutdown. Runnable demos live in
 
 ### Automated Publishing
 The CI/CD pipeline automatically publishes NuGet packages:
-- **Pre-release versions** (e.g., `2025.8.25-rc.30`): Published on every push to `main` branch
-- **Release versions** (e.g., `1.0.0`): Published when creating a tag matching `v*`
+- **Pre-release versions** (e.g., `2025.8.25-rc.30`): `Andy.Tui` is published on every push to `main`
+- **Release versions** (e.g., `1.0.0`): `Andy.Tui` is published when creating a tag matching `v*`
+
+The workflow rejects the artifact set unless it contains exactly one package
+whose ID is `Andy.Tui`.
 
 ### Manual Publishing
 To manually pack and publish:
 ```bash
-# Pack all libraries
-dotnet pack -c Release -o ./nupkg
+# Pack the single public package
+dotnet pack src/Andy.Tui/Andy.Tui.csproj -c Release -o ./nupkg
 
 # Publish to NuGet (requires API key)
-dotnet nuget push ./nupkg/Andy.Tui.*.nupkg -k <NUGET_API_KEY> -s https://api.nuget.org/v3/index.json
+dotnet nuget push ./nupkg/Andy.Tui.<version>.nupkg -k <NUGET_API_KEY> -s https://api.nuget.org/v3/index.json
 ```
+
+For the one-time cleanup of previously published component packages, see
+[NuGet package cleanup](docs/NUGET_PACKAGE_CLEANUP.md).
 
 ## Development workflow
 - Format: `dotnet format`
