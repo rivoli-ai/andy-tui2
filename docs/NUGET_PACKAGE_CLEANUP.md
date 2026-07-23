@@ -37,6 +37,12 @@ workflow inventories and unlists only the IDs above. It runs only from `main`
 and only when its confirmation input is exactly
 `RETIRE_ANDY_TUI_COMPONENTS`.
 
+The workflow uses a separate `NUGET_RETIRE_API_KEY` Actions secret. Create a
+short-lived nuget.org API key with the **Unlist package versions** operation and
+the `Andy.Tui.*` package glob, then save it under that secret name. The workflow
+waits 15 seconds between requests to stay below nuget.org's 250 unlist requests
+per API key per hour and verifies that no component versions remain listed.
+
 For a read-only local inventory, run:
 
 ```bash

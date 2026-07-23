@@ -9,8 +9,10 @@ set -euo pipefail
 MODE="inventory"
 if [[ "${1:-}" == "--execute" ]]; then
   MODE="execute"
+elif [[ "${1:-}" == "--assert-none-listed" ]]; then
+  MODE="assert"
 elif [[ $# -ne 0 ]]; then
-  echo "Usage: $0 [--execute]" >&2
+  echo "Usage: $0 [--execute|--assert-none-listed]" >&2
   exit 2
 fi
 
@@ -22,6 +24,12 @@ fi
 if [[ "${MODE}" == "execute" && -z "${NUGET_API_KEY:-}" ]]; then
   echo "NUGET_API_KEY is required with --execute." >&2
   exit 1
+fi
+
+readonly DELETE_DELAY_SECONDS="${NUGET_DELETE_DELAY_SECONDS:-0}"
+if [[ ! "${DELETE_DELAY_SECONDS}" =~ ^[0-9]+$ ]]; then
+  echo "NUGET_DELETE_DELAY_SECONDS must be a non-negative integer." >&2
+  exit 2
 fi
 
 readonly REGISTRATION_BASE="https://api.nuget.org/v3/registration5-gz-semver2"
@@ -64,6 +72,7 @@ listed_versions() {
 }
 
 total=0
+deleted=0
 for package_id in "${PACKAGE_IDS[@]}"; do
   version_output="$(listed_versions "${package_id}")"
   versions=()
@@ -75,10 +84,16 @@ for package_id in "${PACKAGE_IDS[@]}"; do
   for version in "${versions[@]}"; do
     echo "  - ${version}"
     if [[ "${MODE}" == "execute" ]]; then
+      # NuGet.org permits 250 unlist requests per API key per hour. A
+      # 15-second workflow delay keeps the 406-version cleanup below that rate.
+      if [[ ${deleted} -gt 0 && "${DELETE_DELAY_SECONDS}" -gt 0 ]]; then
+        sleep "${DELETE_DELAY_SECONDS}"
+      fi
       dotnet nuget delete "${package_id}" "${version}" \
         --source "${NUGET_SOURCE}" \
         --api-key "${NUGET_API_KEY}" \
         --non-interactive
+      deleted=$((deleted + 1))
     fi
   done
   total=$((total + ${#versions[@]}))
@@ -89,4 +104,13 @@ if [[ "${MODE}" == "inventory" ]]; then
   exit 0
 fi
 
-echo "Retirement requests complete: ${total} component version(s) unlisted."
+if [[ "${MODE}" == "assert" ]]; then
+  if [[ ${total} -ne 0 ]]; then
+    echo "Verification failed: ${total} component version(s) are still listed." >&2
+    exit 1
+  fi
+  echo "Verification complete: no legacy component versions are listed."
+  exit 0
+fi
+
+echo "Retirement requests complete: ${deleted} component version(s) unlisted."

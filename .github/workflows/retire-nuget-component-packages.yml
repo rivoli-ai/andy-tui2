@@ -15,6 +15,7 @@ jobs:
   retire:
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'RETIRE_ANDY_TUI_COMPONENTS'
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +28,9 @@ jobs:
 
       - name: Unlist legacy component versions
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ secrets.NUGET_RETIRE_API_KEY }}
+          NUGET_DELETE_DELAY_SECONDS: '15'
         run: scripts/retire-nuget-component-packages.sh --execute
 
+      - name: Verify every legacy component version is unlisted
+        run: scripts/retire-nuget-component-packages.sh --assert-none-listed
