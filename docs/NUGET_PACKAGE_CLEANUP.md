@@ -41,7 +41,9 @@ The workflow uses a separate `NUGET_RETIRE_API_KEY` Actions secret. Create a
 short-lived nuget.org API key with the **Unlist package versions** operation and
 the `Andy.Tui.*` package glob, then save it under that secret name. The workflow
 waits 15 seconds between requests to stay below nuget.org's 250 unlist requests
-per API key per hour and verifies that no component versions remain listed.
+per API key per hour and verifies that no component versions remain listed. The
+final assertion retries briefly because NuGet's public registration catalog can
+lag successful unlist requests.
 
 For a read-only local inventory, run:
 

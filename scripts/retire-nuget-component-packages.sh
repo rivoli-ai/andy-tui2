@@ -75,13 +75,14 @@ total=0
 deleted=0
 for package_id in "${PACKAGE_IDS[@]}"; do
   version_output="$(listed_versions "${package_id}")"
-  versions=()
-  while IFS= read -r version; do
-    [[ -n "${version}" ]] && versions+=("${version}")
-  done < <(printf '%s\n' "${version_output}" | sort)
+  version_count=0
+  if [[ -n "${version_output}" ]]; then
+    version_count="$(printf '%s\n' "${version_output}" | awk 'NF { count++ } END { print count + 0 }')"
+  fi
 
-  echo "${package_id}: ${#versions[@]} listed version(s)"
-  for version in "${versions[@]}"; do
+  echo "${package_id}: ${version_count} listed version(s)"
+  while IFS= read -r version; do
+    [[ -z "${version}" ]] && continue
     echo "  - ${version}"
     if [[ "${MODE}" == "execute" ]]; then
       # NuGet.org permits 250 unlist requests per API key per hour. A
@@ -95,8 +96,8 @@ for package_id in "${PACKAGE_IDS[@]}"; do
         --non-interactive
       deleted=$((deleted + 1))
     fi
-  done
-  total=$((total + ${#versions[@]}))
+  done < <(printf '%s\n' "${version_output}" | sort)
+  total=$((total + version_count))
 done
 
 if [[ "${MODE}" == "inventory" ]]; then

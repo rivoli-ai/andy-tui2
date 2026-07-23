@@ -147,6 +147,7 @@ public sealed class PackageContentsTests
         Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_RETIRE_API_KEY }}", workflow);
         Assert.Contains("NUGET_DELETE_DELAY_SECONDS: '15'", workflow);
         Assert.Contains("scripts/retire-nuget-component-packages.sh --assert-none-listed", workflow);
+        Assert.Contains("retrying in 30 seconds", workflow);
     }
 
     private static XElement ReadNuspec(ZipArchive zip, string packageId)

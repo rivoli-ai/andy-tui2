@@ -33,4 +33,15 @@ jobs:
         run: scripts/retire-nuget-component-packages.sh --execute
 
       - name: Verify every legacy component version is unlisted
-        run: scripts/retire-nuget-component-packages.sh --assert-none-listed
+        run: |
+          # NuGet's registration catalog can briefly lag successful delete
+          # requests. Retry the read-only assertion before reporting failure.
+          for attempt in {1..10}; do
+            if scripts/retire-nuget-component-packages.sh --assert-none-listed; then
+              exit 0
+            fi
+            [[ "${attempt}" -eq 10 ]] && break
+            echo "NuGet registration has not converged; retrying in 30 seconds."
+            sleep 30
+          done
+          exit 1
